@@ -17,5 +17,5 @@ COPY . .
 EXPOSE 8080
 
 # 7. La commande pour lancer l'app Mesop
-# (Remplace app.py par ton fichier principal si c'est main.py)
-CMD ["mesop", "app.py", "--port=8080"]
+# On ajoute --host=0.0.0.0 pour que Cloud Run puisse router le trafic vers l'app
+CMD ["mesop", "app.py", "--host=0.0.0.0", "--port=8080"]
