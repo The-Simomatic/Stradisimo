@@ -3,7 +3,7 @@ import styles as st
 from state import State 
 import supabase_db as db
 
-# --- GESTIONNAIRES D'ÉVÉNEMENTS (SETTERS) ---
+# --- GESTIONNAIRES D'ÉVÉNEMENTS 
 
 def on_email_blur(e: me.InputEvent):
     """Met à jour l'email dans le State global quand on quitte le champ."""
