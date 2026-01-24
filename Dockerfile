@@ -11,4 +11,4 @@ COPY . .
 ENV PORT=8080
 
 # --prod est crucial pour écouter sur 0.0.0.0 (toutes les interfaces réseau)
-CMD ["mesop", "run", "app.py", "--prod", "--port=8080"]
+CMD mesop run app.py --prod --port=8080
