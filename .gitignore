@@ -1,0 +1,40 @@
+# Secrets Streamlit
+.streamlit/secrets.toml
+
+# Variables d'environnement
+.env
+
+# Dossiers Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# --- OS spécifiques ---
+.DS_Store
+Thumbs.db
+
+# --- IDE (Visual Studio Code, PyCharm) ---
+.vscode/
+.idea/
+
+# --- Google Cloud & Docker ---
+# Évite d'envoyer les logs de déploiement ou les fichiers temporaires Docker
+.gcloudignore
+.dockerignore
+*.log
+
+# --- Mesop & Web ---
+# Si tu génères des fichiers statiques ou des caches spécifiques
+.mesop_cache/
+
+# --- Strava & OAuth ---
+# Si vous stockez des tokens temporaires ou des fichiers de session
+tokens.json
+.strava_cache/
+
+# --- Datas & Exports ---
+# Si vous téléchargez des activités Strava pour les traiter en local
+data/*.csv
+data/*.json
+!data/.gitkeep
