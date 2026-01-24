@@ -1,0 +1,12 @@
+# Serveur UI (Remplace Streamlit)
+mesop
+
+# Communication et API
+requests
+python-dotenv
+supabase
+
+# Analyse de données et Graphiques
+pandas
+plotly
+kaleido==0.2.1
