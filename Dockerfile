@@ -9,4 +9,5 @@ COPY . .
 
 ENV PORT=8080
 
-CMD ["sh", "-c", "mesop run app.py --port=$PORT"]
+CMD ["sh", "-c", "echo MESOP_PATH=$(which mesop) && mesop --help && ls -la && mesop run app.py --port=$PORT"]
+
