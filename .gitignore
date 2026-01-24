@@ -19,22 +19,18 @@ Thumbs.db
 .idea/
 
 # --- Google Cloud & Docker ---
-# Évite d'envoyer les logs de déploiement ou les fichiers temporaires Docker
-.gcloudignore
+# .gcloudignore RETIRÉ d'ici pour permettre le déploiement Cloud Run
 .dockerignore
 *.log
 
 # --- Mesop & Web ---
-# Si tu génères des fichiers statiques ou des caches spécifiques
 .mesop_cache/
 
 # --- Strava & OAuth ---
-# Si vous stockez des tokens temporaires ou des fichiers de session
 tokens.json
 .strava_cache/
 
 # --- Datas & Exports ---
-# Si vous téléchargez des activités Strava pour les traiter en local
 data/*.csv
 data/*.json
 !data/.gitkeep
