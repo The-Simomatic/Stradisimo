@@ -10,4 +10,4 @@ COPY . .
 ENV PORT=8080
 
 # IMPORTANT: utiliser la vraie commande Mesop
-CMD ["mesop", "app.py", "--", "--host=0.0.0.0", "--port=8080"]
+CMD ["mesop", "app.py", "--", "--host=0.0.0.0", "--port=$PORT"]
