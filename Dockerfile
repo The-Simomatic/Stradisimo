@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["mesop", "run", "app.py"]
+CMD ["mesop", "run"]
