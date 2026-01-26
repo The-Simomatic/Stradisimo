@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["python", "-m", "mesop", "main.py"]
+CMD ["mesop", "main.py"]
