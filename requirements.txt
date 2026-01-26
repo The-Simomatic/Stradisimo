@@ -1,4 +1,5 @@
 mesop
+gunicorn
 requests
 python-dotenv
 supabase
