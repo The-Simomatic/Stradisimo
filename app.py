@@ -1,4 +1,3 @@
-import os
 import mesop as me
 import styles as st
 import components as cp
@@ -116,8 +115,3 @@ def main():
         # 5. PIED DE PAGE 
         with me.box(style=me.Style(height=40)):
             pass
-
-if __name__ == "__main__":
-    from mesop.server import run_server  # <-- obligatoire pour lancer le serveur Mesop
-    port = int(os.environ.get("PORT", 8080))
-    run_server(app=main, host="0.0.0.0", port=port)
