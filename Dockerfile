@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["mesop", "main.py", "--hostname=0.0.0.0", "--port=8080"]
+CMD ["python", "-m", "mesop", "main.py", "--port=8080"]
