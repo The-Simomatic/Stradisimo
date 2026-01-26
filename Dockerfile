@@ -9,6 +9,4 @@ COPY . .
 
 EXPOSE 8080
 
-# Cloud Run exécutera directement le script
-CMD ["mesop", "run", "app.py", "--host", "0.0.0.0", "--port", "8080"]
-
+CMD ["mesop", "run", "app.py"]
