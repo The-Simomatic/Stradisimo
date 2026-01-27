@@ -1,17 +1,19 @@
 steps:
+# 1. Construction de l'image
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'gcr.io/$PROJECT_ID/stradisimo:$COMMIT_SHA', '.']
 
+# 2. Déploiement automatique sur Cloud Run
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  entrypoint: 'gcloud'
+  entrypoint: gcloud
   args:
-    [
-      'run', 'deploy', 'stradisimo',
-      '--image', 'gcr.io/$PROJECT_ID/stradisimo:$COMMIT_SHA',
-      '--region', 'europe-west1',
-      '--platform', 'managed',
-      '--quiet'
-    ]
+  - 'run'
+  - 'deploy'
+  - 'stradisimo'
+  - '--image'
+  - 'gcr.io/$PROJECT_ID/stradisimo:$COMMIT_SHA'
+  - '--region'
+  - 'europe-west1'
 
 images:
 - 'gcr.io/$PROJECT_ID/stradisimo:$COMMIT_SHA'
