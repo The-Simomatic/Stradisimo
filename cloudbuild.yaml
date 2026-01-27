@@ -2,6 +2,17 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'gcr.io/$PROJECT_ID/stradisimo:$COMMIT_SHA', '.']
 
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'gcloud'
+  args:
+    [
+      'run', 'deploy', 'stradisimo',
+      '--image', 'gcr.io/$PROJECT_ID/stradisimo:$COMMIT_SHA',
+      '--region', 'europe-west1',
+      '--platform', 'managed',
+      '--quiet'
+    ]
+
 images:
 - 'gcr.io/$PROJECT_ID/stradisimo:$COMMIT_SHA'
 
