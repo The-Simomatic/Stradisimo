@@ -13,7 +13,7 @@ steps:
   args:
   - 'run'
   - 'deploy'
-  - 'stradisimo-app'
+  - 'stradisimo'
   - '--image'
   - 'gcr.io/$PROJECT_ID/stradisimo:$COMMIT_SHA'
   - '--region'
