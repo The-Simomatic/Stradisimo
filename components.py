@@ -21,18 +21,18 @@ def on_settings_click(e: me.ClickEvent):
 # ==================================================
 
 def render_header(s: State, on_logout):
-    """Affiche le logo parfaitement centré avec son style officiel."""
     with me.box(style=me.Style(
         display="flex",
         justify_content="space-between",
         align_items="center",
         width="100%",
-        padding=me.Padding.symmetric(horizontal=20, vertical=10),
+        padding=me.Padding.symmetric(horizontal=15, vertical=10), # Réduit un peu
         border=me.Border(bottom=me.BorderSide(width=1, color="rgba(255,255,255,0.1)", style="solid"))
     )):
         
-        # --- BLOC GAUCHE (Équilibre pour le centrage) ---
-        with me.box(style=me.Style(width="25%")):
+        # --- BLOC GAUCHE (Invisible mais garde l'espace pour centrer le logo) ---
+        # On réduit sa largeur sur mobile via le style
+        with me.box(style=me.Style(flex_grow=1, flex_basis="0%")):
             pass
 
         # --- BLOC CENTRAL (Logo + Slogan) ---
@@ -40,14 +40,12 @@ def render_header(s: State, on_logout):
             display="flex",
             flex_direction="column",
             align_items="center",
-            width="50%"
+            flex_grow=2, # Prend plus de place
         )):
-            # Ligne du Logo
             with me.box(style=st.LOGO_ROW_STYLE):
                 me.text("STRADI", style=st.LOGO_TEXT_MAIN_STYLE)
                 me.text("SIMO", style=st.LOGO_TEXT_SECONDARY_STYLE)
             
-            # Sous-titre (Correction : on utilise LOGO_SUBTITLE_STYLE qui existe dans styles.py)
             me.text(
                 "L'appli qui rend la route grandissime",
                 style=st.LOGO_SUBTITLE_STYLE
@@ -57,25 +55,17 @@ def render_header(s: State, on_logout):
         with me.box(style=me.Style(
             display="flex",
             justify_content="flex-end",
-            gap=20,
+            gap=15, # Un peu moins d'espace entre les icônes
             align_items="center",
-            width="25%"
+            flex_grow=1,
+            flex_basis="0%"
         )):
             if s.is_logged_in:
-                # Bouton Paramètres (Icône)
-                with me.box(
-                    on_click=on_settings_click,
-                    style=me.Style(cursor="pointer")
-                ):
-                    me.icon(icon="settings", style=me.Style(color=st.COLOR_PRIMARY))
+                with me.box(on_click=on_settings_click, style=me.Style(cursor="pointer")):
+                    me.icon(icon="settings", style=me.Style(color=st.COLOR_PRIMARY, font_size="20px")) # Taille forcée
                 
-                # Bouton Déconnexion (Icône)
-                with me.box(
-                    on_click=on_logout,
-                    style=me.Style(cursor="pointer")
-                ):
-                    me.icon(icon="logout", style=me.Style(color=st.COLOR_ERROR))
-
+                with me.box(on_click=on_logout, style=me.Style(cursor="pointer")):
+                    me.icon(icon="logout", style=me.Style(color=st.COLOR_ERROR, font_size="20px"))
 # ==================================================
 # NAVIGATION (BARRE D'ONGLETS)
 # ==================================================

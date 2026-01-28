@@ -56,7 +56,8 @@ LOGO_ROW_STYLE = me.Style(
 
 LOGO_TEXT_MAIN_STYLE = me.Style(
     font_family="Kanit, sans-serif",
-    font_size="clamp(2.6rem, 9vw, 5.5rem)",
+    # Max réduit à 2.5rem pour le header (contre 5.5 avant)
+    font_size="clamp(2rem, 6vw, 4rem)", 
     font_weight="900",
     color=COLOR_PRIMARY,
     text_transform="uppercase",
@@ -65,7 +66,7 @@ LOGO_TEXT_MAIN_STYLE = me.Style(
 
 LOGO_TEXT_SECONDARY_STYLE = me.Style(
     font_family="Kanit, sans-serif",
-    font_size="clamp(2.6rem, 9vw, 5.5rem)",
+    font_size="clamp(2rem, 6vw, 4rem)",
     font_weight="900",
     color=COLOR_ACCENT,
     text_transform="uppercase",
@@ -74,12 +75,15 @@ LOGO_TEXT_SECONDARY_STYLE = me.Style(
 
 LOGO_SUBTITLE_STYLE = me.Style(
     font_family="Inter, sans-serif",
-    font_size="clamp(1.5rem, 2vw, 1.1rem)", # Corrigé : plus petit pour l'équilibre
+    # Taille plus petite et responsive
+    font_size="clamp(0.67rem, 2.5vw, 1.4rem)", 
     color=COLOR_TEXT,
-    opacity=0.9,
-    letter_spacing="0.05rem",
-    margin=me.Margin(top=5),
+    opacity=0.8,
+    letter_spacing="0.02rem",
+    margin=me.Margin(top=2),
     text_align="center",
+    # EMPECHE LE RETOUR À LA LIGNE
+    white_space="nowrap", 
 )
 
 # ==================================================
