@@ -8,7 +8,8 @@ from planning import planning_screen
 from cv_sportif import cv_screen
 from settings import settings_screen
 from cgu import cgu_screen  
-from profile import render_profile_setup # Import de la page de profil obligatoire [cite: 2026-01-22]
+from profile import render_profile_setup 
+from password_reset import password_reset_screen
 
 # --- LOGIQUE BASE DE DONNÉES ---
 import supabase_db as db
@@ -24,13 +25,12 @@ def update_state_from_profile(s: State, profile: dict):
         s.niveau = profile.get("niveau") or "Débutant"
         s.date_n = profile.get("date_n") or ""
         s.sexe = profile.get("sexe") or ""
-        # C'est ici que l'erreur se produisait : on utilise sport_pref
         s.sport_pref = profile.get("sport_pref") or ""
 
 # --- GESTIONNAIRES D'ÉVÉNEMENTS ---
 
 def handle_login(e: me.ClickEvent):
-    """Gère la connexion utilisateur et initialise le State [cite: 2026-01-22]."""
+    """Gère la connexion utilisateur, initialise le State et redirige."""
     s = me.state(State)
     
     if not s.email or not s.password:
@@ -50,27 +50,41 @@ def handle_login(e: me.ClickEvent):
     user = result["user"]
     if user:
         s.user_id = user.id
-        # Récupération immédiate du profil après login
+        s.email = user.email 
+        s.password = "" # Sécurité : on vide le password
+        
+        # Récupération immédiate du profil
         profile, _ = db.get_user_profile(user.id)
         if profile:
             update_state_from_profile(s, profile)
+        
         s.is_logged_in = True
+        
+        # --- LOGIQUE DE REDIRECTION POST-LOGIN ---
+        # Si le nom ou prénom manque, on force le setup du profil
+        if not s.prenom or not s.nom:
+            s.is_completing_profile = True
+            s.current_page = "profile_edit"
+        else:
+            s.is_completing_profile = False
+            s.current_page = "dashboard" # REDIRECTION FORCÉE ICI
+            
         s.error_message = ""
     
     s.is_loading = False 
 
 def handle_logout(e: me.ClickEvent):
-    """Déconnecte l'utilisateur et réinitialise l'application [cite: 2026-01-22]."""
+    """Déconnecte l'utilisateur et réinitialise l'application."""
     s = me.state(State)
     db.supabase.auth.sign_out()
     s.is_logged_in = False
     s.user_id = ""
-    s.current_page = "dashboard"
+    s.current_page = "login" # Retour à la case départ
     s.email = ""
     s.password = ""
     s.error_message = ""
     s.show_signup = False
-    # Nettoyage des données profil
+    s.is_completing_profile = False
     s.prenom = ""
     s.nom = ""
 
@@ -80,63 +94,77 @@ def handle_logout(e: me.ClickEvent):
 def main():
     s = me.state(State)
     
-    # 1. PERSISTANCE : Reconnexion automatique si une session existe [cite: 2026-01-22]
+    # 1. PERSISTANCE : Reconnexion automatique au rafraîchissement
     if not s.is_logged_in:
         try:
             res = db.supabase.auth.get_user()
             if res and res.user:
                 s.is_logged_in = True
                 s.user_id = res.user.id
+                s.email = res.user.email
                 profile, _ = db.get_user_profile(res.user.id)
                 if profile:
                     update_state_from_profile(s, profile)
+                
+                if not s.prenom or not s.nom:
+                    s.is_completing_profile = True
         except:
             pass
 
-    # 2. RÉCUPÉRATION : Détection du mode reset mot de passe [cite: 2026-01-22]
+    # 2. RÉCUPÉRATION : Mode recovery via URL
     params = me.query_params
     token = params.get("token")
     is_recovery_mode = params.get("type") == "recovery"
 
-    # Échange du token contre une session active pour éviter "Auth session missing" [cite: 2026-01-22]
     if is_recovery_mode and token and not s.is_logged_in:
         success, res = db.verify_recovery_token(token)
         if success:
             s.is_logged_in = True
             s.user_id = res.user.id
+            s.email = res.user.email
+            s.current_page = "password_edit"
 
     with me.box(style=st.MAIN_BOX_STYLE):
-        # HEADER (Toujours présent)
+        # HEADER
         cp.render_header(s, on_logout=handle_logout)
         
-        with me.box(style=me.Style(height=4, width="100%", margin=me.Margin.symmetric(vertical=10))):
-            pass 
+        with me.box(style=me.Style(
+            height=1,               # Épaisseur de la ligne
+            width="100%", 
+            background="#e5e5e5",   # Couleur de la ligne (gris clair par ex)
+            margin=me.Margin(bottom=20) # C'est ICI que tu gères l'espace (40px)
+        )):
+            pass
 
         # --- LOGIQUE DE NAVIGATION ---
         
-        # PRIORITÉ A : Consultation des CGU [cite: 2026-01-22]
+        # A. Consultation CGU
         if s.current_page == "cgu":
             cgu_screen(s)
 
-        # PRIORITÉ B : Réinitialisation de mot de passe via lien email [cite: 2026-01-22]
+        # B. Mot de passe oublié (Lien email)
         elif is_recovery_mode:
             render_password_reset(s)
 
-        # PRIORITÉ C : Authentification (Utilisateur non connecté) [cite: 2026-01-22]
+        # C. Non connecté : Login ou Signup
         elif not s.is_logged_in:
             if s.show_signup:
                 render_signup(s)
             else:
                 render_login(s, on_login=handle_login)
 
-        # PRIORITÉ D : Configuration de profil OBLIGATOIRE [cite: 2026-01-22]
-        # Si connecté mais sans prénom ou nom, on impose l'écran de profil [cite: 2026-01-22]
-        elif s.is_logged_in and (not s.prenom or not s.nom):
+        # D. Connecté mais Profil Incomplet (VERROU)
+        elif s.is_logged_in and (s.is_completing_profile or not s.prenom or not s.nom):
             render_profile_setup(s)
 
-        # PRIORITÉ E : Accès complet (Connecté et Profil OK) [cite: 2026-01-22]
+        # E. Accès complet (Dashboard, Planning, etc.)
         else:
             cp.render_navbar(s)
+
+            # SÉCURITÉ : Empêche l'écran vide si current_page n'est pas reconnu
+            valid_pages = ["dashboard", "planning", "cv", "settings", "profile_edit", "password_edit"]
+            if s.current_page not in valid_pages:
+                s.current_page = "dashboard"
 
             with me.box(style=me.Style(
                 width="100%", 
@@ -153,7 +181,11 @@ def main():
                     cv_screen(s)
                 elif s.current_page == "settings":
                     settings_screen(s)
-
-        # ESPACE DE FIN DE PAGE
+                elif s.current_page == "profile_edit":
+                    render_profile_setup(s)
+                elif s.current_page == "password_edit":
+                    password_reset_screen(s)
+                
+        # FOOTER
         with me.box(style=me.Style(height=40)):
             pass

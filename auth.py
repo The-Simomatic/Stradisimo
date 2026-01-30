@@ -7,10 +7,7 @@ import re
 # --- UTILITAIRES DE VALIDATION ---
 
 def validate_password_strength(password: str) -> tuple[bool, str]:
-    """
-    Vérifie si le mot de passe respecte les critères :
-    6 caractères minimum, 1 majuscule, 1 chiffre.
-    """
+    """Vérifie : 6 caractères min, 1 majuscule, 1 chiffre."""
     if len(password) < 6:
         return False, "Le mot de passe doit contenir au moins 6 caractères."
     if not re.search(r"[A-Z]", password):
@@ -21,11 +18,12 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
 
 # --- GESTIONNAIRES D'ÉVÉNEMENTS ---
 
-def on_email_blur(e: me.InputEvent):
+def on_email_blur(e: me.InputBlurEvent):
     s = me.state(State)
     s.email = e.value
 
-def on_password_blur(e: me.InputEvent):
+def on_password_input(e: me.InputEvent):
+    """Mise à jour instantanée pour le retour visuel des hints."""
     s = me.state(State)
     s.password = e.value
 
@@ -34,19 +32,24 @@ def on_cgu_change(e: me.CheckboxChangeEvent):
     s.accept_cgu = e.checked
 
 def on_forgot_password_click(e: me.ClickEvent):
+    """Gère l'envoi du mail de reset, que l'email soit saisi ou déjà en session."""
     s = me.state(State)
-    if not s.email:
+    
+    # Priorité 1 : Email saisi dans le champ
+    # Priorité 2 : Email déjà stocké dans le State (si connecté)
+    email_to_use = s.email if s.email else db.get_current_user_email()
+    
+    if not email_to_use:
         s.error_message = "Veuillez saisir votre email pour recevoir le lien."
         return
+        
     s.is_loading = True
-    success, message = db.reset_password(s.email)
+    success, message = db.reset_password(email_to_use)
     s.error_message = message
     s.is_loading = False
 
 def on_update_password_click(e: me.ClickEvent):
-    """Validation forcée lors de la MODIFICATION."""
     s = me.state(State)
-    
     is_valid, error_msg = validate_password_strength(s.password)
     if not is_valid:
         s.error_message = error_msg
@@ -68,9 +71,9 @@ def toggle_auth_mode(e: me.ClickEvent):
     s.error_message = ""
     s.accept_cgu = False
     s.password = ""
+    s.email = "" # Nettoyage pour éviter les conflits
 
 def on_signup_click(e: me.ClickEvent):
-    """Validation forcée lors de la CRÉATION."""
     s = me.state(State)
     if not s.email or not s.password:
         s.error_message = "Veuillez remplir tous les champs."
@@ -102,7 +105,7 @@ def on_view_cgu(e: me.ClickEvent):
 # --- COMPOSANTS D'INTERFACE ---
 
 def render_password_hints(s: State):
-    """Affiche les pré-requis avec un changement de couleur dynamique."""
+    """Retour visuel dynamique sur la force du mot de passe."""
     has_maj = bool(re.search(r"[A-Z]", s.password))
     has_digit = bool(re.search(r"\d", s.password))
     has_len = len(s.password) >= 6
@@ -124,8 +127,9 @@ def render_password_hints(s: State):
 def render_login(s: State, on_login):
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         me.text("CONNEXION", style=st.LOGIN_TITLE_STYLE)
+        # on_input assure que s.email est rempli avant même de cliquer sur Valider
         me.input(label="Email", on_blur=on_email_blur, style=st.INPUT_STYLE)
-        me.input(label="Mot de passe", type="password", on_blur=on_password_blur, style=st.INPUT_STYLE)
+        me.input(label="Mot de passe", type="password", on_input=on_password_input, style=st.INPUT_STYLE)
         
         with me.box(on_click=on_forgot_password_click, style=me.Style(display="flex", justify_content="flex-end", width="100%", cursor="pointer")):
             me.text("Mot de passe oublié ?", style=st.LINK_STYLE)
@@ -147,7 +151,7 @@ def render_signup(s: State):
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         me.text("CRÉATION DE COMPTE", style=st.LOGIN_TITLE_STYLE)
         me.input(label="Email", type="email", on_blur=on_email_blur, style=st.INPUT_STYLE)
-        me.input(label="Mot de passe", type="password", on_blur=on_password_blur, style=st.INPUT_STYLE)
+        me.input(label="Mot de passe", type="password", on_input=on_password_input, style=st.INPUT_STYLE)
         
         render_password_hints(s)
 
@@ -171,7 +175,6 @@ def render_signup(s: State):
             me.text(s.error_message, style=st.ERROR_TEXT_STYLE)
 
 def render_password_reset(s: State):
-    # Récupération de l'email pour rassurer l'utilisateur
     user_email = db.get_current_user_email()
     
     with me.box(style=st.LOGIN_FORM_CONTAINER):
@@ -181,7 +184,7 @@ def render_password_reset(s: State):
              me.text(f"Réinitialisation pour : {user_email}", 
                    style=me.Style(font_size="0.85rem", color=st.COLOR_PRIMARY, margin=me.Margin(bottom=15)))
         
-        me.input(label="Nouveau mot de passe", type="password", on_blur=on_password_blur, style=st.INPUT_STYLE)
+        me.input(label="Nouveau mot de passe", type="password", on_input=on_password_input, style=st.INPUT_STYLE)
         
         render_password_hints(s)
         

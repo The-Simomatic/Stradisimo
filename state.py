@@ -2,32 +2,37 @@ import mesop as me
 
 @me.stateclass
 class State:
-    # --- ÉTAT DE SESSION ---
+    # --- ÉTAT DE SESSION & AUTH ---
     is_logged_in: bool = False
     is_loading: bool = False
-    user_id: str = "" # Indispensable pour lier l'Auth au Profil [cite: 2026-01-22]
+    user_id: str = ""           # UUID Supabase : sert à filtrer les données (RLS)
+    email: str = ""             # Stocke l'email après login pour la réinitialisation PW
+    password: str = ""          # Utilisé temporairement lors de la saisie login/signup
     
     # --- NAVIGATION ---
-    # dashboard, planning, cv, settings, cgu
-    current_page: str = "dashboard" 
+    # dashboard, settings, profile_edit, password_edit, cgu, login
+    current_page: str = "login" 
     
-    # Bascule entre le formulaire de connexion (False) et d'inscription (True)
+    # Bascule entre Login (False) et Signup (True)
     show_signup: bool = False
 
-    # --- AUTHENTIFICATION ---
-    email: str = ""
-    password: str = ""
-    error_message: str = ""
-    
-    # Consentement obligatoire pour l'inscription
-    accept_cgu: bool = False
+    # --- MESSAGES DE FEEDBACK (Feedback visuel) ---
+    error_message: str = ""     # S'affiche en rouge
+    success_message: str = ""   # S'affiche en turquoise (ex: "Email envoyé !")
 
-    # --- DONNÉES UTILISATEUR (Profil) ---
-    # Ces champs correspondent exactement à ta table 'profiles' [cite: 2026-01-22]
+    # --- CONSENTEMENT & LÉGAL ---
+    accept_cgu: bool = False    # Obligatoire pour l'inscription
+
+    # --- LOGIQUE DE FLUX (PROFIL) ---
+    # Bloque l'utilisateur sur le formulaire profil s'il est incomplet
+    is_completing_profile: bool = False 
+
+    # --- DONNÉES UTILISATEUR (Colonnes table 'profiles') ---
+    # Ces variables doivent être mappées lors du chargement initial (fetch)
     prenom: str = ""
-    nom: str = ""            # Ajouté : obligatoire [cite: 2026-01-22]
-    date_n: str = ""         # Ajouté : obligatoire [cite: 2026-01-22]
+    nom: str = ""               
+    date_n: str = ""            # Format ISO YYYY-MM-DD
     poids: str = ""
-    sexe: str = ""           # Ajouté : pour le formulaire [cite: 2026-01-22]
-    niveau: str = "Débutant" # Valeur par défaut
-    sport_pref: str = ""     # Renommé pour correspondre à ta base [cite: 2026-01-22]
+    sexe: str = ""              
+    niveau: str = "Débutant" 
+    sport_pref: str = ""
