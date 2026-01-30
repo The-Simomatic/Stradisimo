@@ -70,7 +70,7 @@ def main():
     
     # --- INTERCEPTION DES PARAMÈTRES D'URL ---
     # Permet de détecter si l'utilisateur vient du mail de récupération
-    params = me.query_params()
+    params = me.query_params
     is_recovery_mode = params.get("type") == "recovery"
     
     with me.box(style=st.MAIN_BOX_STYLE):
