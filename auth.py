@@ -58,7 +58,6 @@ def on_update_password_click(e: me.ClickEvent):
     
     if success:
         s.error_message = "Succès ! Votre mot de passe a été modifié."
-        # On redirige vers l'accueil sans les paramètres d'URL de recovery après 2 secondes
         me.navigate("/") 
     else:
         s.error_message = f"Erreur : {message}"
@@ -68,7 +67,6 @@ def toggle_auth_mode(e: me.ClickEvent):
     s.show_signup = not s.show_signup
     s.error_message = ""
     s.accept_cgu = False
-    # On vide le mot de passe par sécurité lors du switch
     s.password = ""
 
 def on_signup_click(e: me.ClickEvent):
@@ -94,7 +92,7 @@ def on_signup_click(e: me.ClickEvent):
     if result["error"]:
         s.error_message = f"Erreur : {result['error']}"
     else:
-        s.error_message = "Compte créé ! Vérifiez vos emails pour valider votre compte."
+        s.error_message = "Compte créé ! Vérifiez vos emails."
         s.show_signup = False
 
 def on_view_cgu(e: me.ClickEvent):
@@ -105,12 +103,10 @@ def on_view_cgu(e: me.ClickEvent):
 
 def render_password_hints(s: State):
     """Affiche les pré-requis avec un changement de couleur dynamique."""
-    # Logique de validation en temps réel pour le feedback visuel
     has_maj = bool(re.search(r"[A-Z]", s.password))
     has_digit = bool(re.search(r"\d", s.password))
     has_len = len(s.password) >= 6
     
-    # Si tout est OK, on utilise la couleur primaire (Turquoise)
     is_all_ok = has_maj and has_digit and has_len
     text_color = st.COLOR_PRIMARY if is_all_ok else st.COLOR_TEXT
 
@@ -165,7 +161,6 @@ def render_signup(s: State):
             if s.is_loading:
                 me.progress_spinner()
             else:
-                # Désactivé si CGU non cochées
                 me.button("S'INSCRIRE", type="flat", on_click=on_signup_click, disabled=not s.accept_cgu,
                          style=st.LOGIN_BUTTON_STYLE if s.accept_cgu else st.LOGIN_BUTTON_DISABLED_STYLE)
 
@@ -176,8 +171,15 @@ def render_signup(s: State):
             me.text(s.error_message, style=st.ERROR_TEXT_STYLE)
 
 def render_password_reset(s: State):
+    # Récupération de l'email pour rassurer l'utilisateur
+    user_email = db.get_current_user_email()
+    
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         me.text("NOUVEAU MOT DE PASSE", style=st.LOGIN_TITLE_STYLE)
+        
+        if user_email:
+             me.text(f"Réinitialisation pour : {user_email}", 
+                   style=me.Style(font_size="0.85rem", color=st.COLOR_PRIMARY, margin=me.Margin(bottom=15)))
         
         me.input(label="Nouveau mot de passe", type="password", on_blur=on_password_blur, style=st.INPUT_STYLE)
         
@@ -190,7 +192,7 @@ def render_password_reset(s: State):
                 me.button("METTRE À JOUR", type="flat", on_click=on_update_password_click, style=st.LOGIN_BUTTON_STYLE)
         
         with me.box(on_click=lambda e: me.navigate("/"), style=me.Style(margin=me.Margin(top=15), cursor="pointer")):
-            me.text("Annuler et retourner à la connexion", style=st.LINK_STYLE)
+            me.text("Annuler", style=st.LINK_STYLE)
 
         if s.error_message:
             is_success = "succès" in s.error_message.lower()

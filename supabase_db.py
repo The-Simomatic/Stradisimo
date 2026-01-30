@@ -35,20 +35,17 @@ def signup_user(email, password):
 def reset_password(email):
     """Envoie un e-mail de réinitialisation de mot de passe via Supabase."""
     try:
-        # Note : Dans Supabase, l'URL de redirection finale se configure 
-        # dans le dashboard (Auth > URL Configuration)
+        # Note : Redirection configurée dans Dashboard > Auth > URL Configuration
         supabase.auth.reset_password_for_email(email)
         return True, "Un lien de récupération a été envoyé sur votre boîte mail."
     except Exception as e:
         error_msg = str(e)
-        if "Email not found" in error_msg:
-             return False, "Aucun compte n'est associé à cet e-mail."
         return False, f"Erreur : {error_msg}"
 
 def update_user_password(new_password):
     """
-    Met à jour le mot de passe. 
-    Cette fonction marche quand l'utilisateur est authentifié (via login ou lien de reset).
+    Met à jour le mot de passe de l'utilisateur en session.
+    Fonctionne après un login ou via un lien de reset (session provisoire).
     """
     try:
         supabase.auth.update_user({
@@ -57,6 +54,19 @@ def update_user_password(new_password):
         return True, "Votre mot de passe a été mis à jour avec succès."
     except Exception as e:
         return False, f"Erreur lors de la mise à jour : {str(e)}"
+
+def get_current_user_email():
+    """
+    Récupère l'email de l'utilisateur actuellement authentifié.
+    Utile pour l'affichage sur la page de reset.
+    """
+    try:
+        user_response = supabase.auth.get_user()
+        if user_response and user_response.user:
+            return user_response.user.email
+        return None
+    except Exception:
+        return None
 
 def get_user_profile(user_id):
     """Récupère les données du profil utilisateur depuis la table 'profiles'."""
