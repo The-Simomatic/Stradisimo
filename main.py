@@ -16,7 +16,7 @@ import supabase_db as db
 # --- UTILITAIRES ---
 
 def update_state_from_profile(s: State, profile: dict):
-    """Met à jour les variables d'état à partir des données Supabase [cite: 2026-01-22]."""
+    """Met à jour les variables d'état à partir des données Supabase."""
     if profile:
         s.prenom = profile.get("prenom") or ""
         s.nom = profile.get("nom") or ""
@@ -24,6 +24,7 @@ def update_state_from_profile(s: State, profile: dict):
         s.niveau = profile.get("niveau") or "Débutant"
         s.date_n = profile.get("date_n") or ""
         s.sexe = profile.get("sexe") or ""
+        # C'est ici que l'erreur se produisait : on utilise sport_pref
         s.sport_pref = profile.get("sport_pref") or ""
 
 # --- GESTIONNAIRES D'ÉVÉNEMENTS ---
