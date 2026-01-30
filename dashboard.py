@@ -21,7 +21,7 @@ def dashboard_screen(s):
         # Carte Sport principal
         cp.metric_card(
             label="Discipline", 
-            value=s.sport
+            value=s.sport_pref
         )
         
         # Carte Niveau
