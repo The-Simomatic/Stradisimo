@@ -14,69 +14,54 @@ def login_user(email, password):
         return {"user": response.user, "session": response.session, "error": None}
     except Exception as e:
         error_msg = str(e)
-        # Gestion propre des erreurs de credentials
         if "Invalid login credentials" in error_msg:
             return {"user": None, "session": None, "error": "Email ou mot de passe incorrect."}
         return {"user": None, "session": None, "error": f"Erreur de connexion : {error_msg}"}
 
-def reset_password(email):
-    """
-    Envoie un e-mail de réinitialisation de mot de passe via Supabase.
-    """
+def signup_user(email, password):
+    """Crée un nouvel utilisateur et déclenche l'envoi d'un email de validation."""
     try:
-        # Supabase envoie automatiquement un e-mail avec un lien de récupération
+        response = supabase.auth.sign_up({
+            "email": email,
+            "password": password
+        })
+        return {"user": response.user, "error": None}
+    except Exception as e:
+        error_msg = str(e)
+        if "User already registered" in error_msg:
+            return {"user": None, "error": "Cet email est déjà utilisé."}
+        return {"user": None, "error": error_msg}
+
+def reset_password(email):
+    """Envoie un e-mail de réinitialisation de mot de passe via Supabase."""
+    try:
+        # Note : Dans Supabase, l'URL de redirection finale se configure 
+        # dans le dashboard (Auth > URL Configuration)
         supabase.auth.reset_password_for_email(email)
         return True, "Un lien de récupération a été envoyé sur votre boîte mail."
     except Exception as e:
         error_msg = str(e)
-        # Message plus clair si l'utilisateur n'existe pas ou si trop de requêtes
         if "Email not found" in error_msg:
              return False, "Aucun compte n'est associé à cet e-mail."
         return False, f"Erreur : {error_msg}"
 
-def get_user_profile(user_id):
-    """Récupère les données du profil utilisateur depuis la table 'profiles'."""
+def update_user_password(new_password):
+    """
+    Met à jour le mot de passe. 
+    Cette fonction marche quand l'utilisateur est authentifié (via login ou lien de reset).
+    """
     try:
-        # .single() renvoie directement le dict, .execute() déclenche l'appel
-        response = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-        return response.data, None
-    except Exception as e:
-        return None, f"Profil introuvable : {str(e)}"
-    
-def update_password(new_password):
-    try:
-        response = supabase.auth.update_user({
+        supabase.auth.update_user({
             "password": new_password
         })
         return True, "Votre mot de passe a été mis à jour avec succès."
     except Exception as e:
         return False, f"Erreur lors de la mise à jour : {str(e)}"
 
-def signup_user(email, password):
-    """Crée un nouvel utilisateur dans Supabase."""
+def get_user_profile(user_id):
+    """Récupère les données du profil utilisateur depuis la table 'profiles'."""
     try:
-        response = supabase.auth.sign_up({
-            "email": email,
-            "password": password
-        })
-        return {"user": response.user, "error": None}
+        response = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
+        return response.data, None
     except Exception as e:
-        return {"user": None, "error": str(e)}
-    
-# supabase_db.py
-
-def signup_user(email, password):
-    """Crée un nouvel utilisateur dans Supabase et déclenche l'envoi d'un email de validation."""
-    try:
-        response = supabase.auth.sign_up({
-            "email": email,
-            "password": password
-        })
-        # Si tout va bien, Supabase renvoie les infos de l'utilisateur
-        return {"user": response.user, "error": None}
-    except Exception as e:
-        error_msg = str(e)
-        # Personnalisation des erreurs courantes
-        if "User already registered" in error_msg:
-            return {"user": None, "error": "Cet email est déjà utilisé."}
-        return {"user": None, "error": error_msg}
+        return None, f"Profil introuvable : {str(e)}"

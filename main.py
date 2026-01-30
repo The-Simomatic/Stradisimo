@@ -2,12 +2,12 @@ import mesop as me
 import styles as st
 import components as cp
 from state import State
-from auth import render_login, render_signup
+from auth import render_login, render_signup, render_password_reset # <-- Nouvel import
 from dashboard import dashboard_screen
 from planning import planning_screen
 from cv_sportif import cv_screen
 from settings import settings_screen
-from cgu import cgu_screen  # <-- Import de la nouvelle page
+from cgu import cgu_screen  
 
 # --- LOGIQUE BASE DE DONNÉES ---
 import supabase_db as db
@@ -68,8 +68,13 @@ def handle_logout(e: me.ClickEvent):
 def main():
     s = me.state(State)
     
+    # --- INTERCEPTION DES PARAMÈTRES D'URL ---
+    # Permet de détecter si l'utilisateur vient du mail de récupération
+    params = me.query_params()
+    is_recovery_mode = params.get("type") == "recovery"
+    
     with me.box(style=st.MAIN_BOX_STYLE):
-        # 1. HEADER COMMUN (Logo + Titre + Logout)
+        # 1. HEADER COMMUN
         cp.render_header(s, on_logout=handle_logout)
         
         # 2. ESPACEMENT SOUS HEADER
@@ -82,16 +87,20 @@ def main():
         if s.current_page == "cgu":
             cgu_screen(s)
 
-        # B. Cas Utilisateur NON CONNECTÉ
+        # B. Cas RECOVERY (Lien mot de passe oublié)
+        elif is_recovery_mode:
+            render_password_reset(s)
+
+        # C. Cas Utilisateur NON CONNECTÉ
         elif not s.is_logged_in:
             if s.show_signup:
                 render_signup(s)
             else:
                 render_login(s, on_login=handle_login)
 
-        # C. Cas Utilisateur CONNECTÉ
+        # D. Cas Utilisateur CONNECTÉ
         else:
-            # 3. BARRE DE NAVIGATION (Dashboard, Planning, CV)
+            # 3. BARRE DE NAVIGATION
             cp.render_navbar(s)
 
             # 4. ZONE DE CONTENU DYNAMIQUE
