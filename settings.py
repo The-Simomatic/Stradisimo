@@ -1,7 +1,7 @@
 import mesop as me
 import styles as st
 import supabase_db as db
-from state import State # <--- AJOUTE CETTE LIGNE pour enlever le souligné jaune
+from state import State
 from profile import render_profile_setup 
 
 def settings_screen(s: State): 
@@ -9,12 +9,14 @@ def settings_screen(s: State):
         me.text("PARAMÈTRES", style=st.LOGIN_TITLE_STYLE)
         
         # --- RUBRIQUE 1 : PROFIL ---
-        with me.expansion_panel(label="👤 Modifier mon profil"):
+        # Remplace label par title ici
+        with me.expansion_panel(title="👤 Modifier mon profil"):
             render_profile_setup(s)
 
         # --- RUBRIQUE 2 : SÉCURITÉ ---
-        with me.expansion_panel(label="🔐 Sécurité & Mot de passe"):
-            me.text("Souhaitez-vous modifier votre mot de passe ?")
+        # Et ici aussi
+        with me.expansion_panel(title="🔐 Sécurité & Mot de passe"):
+            me.text("Souhaitez-vous modifier votre mot de passe ?", style=me.Style(margin=me.Margin(bottom=15)))
             me.button(
                 "RECEVOIR UN LIEN DE RÉINITIALISATION", 
                 type="stroked", 
@@ -22,18 +24,16 @@ def settings_screen(s: State):
             )
 
         # --- RUBRIQUE 3 : IMPORTATION ---
-        with me.expansion_panel(label="📥 Importation de données"):
-            me.button("IMPORTER DEPUIS STRAVA (BIENTÔT)", disabled=True)
+        with me.expansion_panel(title="📥 Importation de données"):
+            me.text("Importer toutes les activités Strava", style=me.Style(font_weight="bold"))
+            me.button("IMPORTER (BIENTÔT)", disabled=True)
 
         # --- RUBRIQUE 4 : CONNEXIONS ---
-        with me.expansion_panel(label="🔗 Services connectés"):
-            me.button("CONNEXION STRAVA (BIENTÔT)", disabled=True, style=me.Style(background="#FC6100", color="white"))
-
-# --- GESTIONNAIRE D'ÉVÉNEMENT ---
+        with me.expansion_panel(title="🔗 Services connectés"):
+            me.button("SE CONNECTER À STRAVA", type="flat", disabled=True, style=me.Style(background="#FC6100", color="white"))
 
 def on_request_reset_click(e: me.ClickEvent):
-    """Déclenche l'envoi d'un mail de reset pour l'utilisateur connecté."""
-    s = me.state(State) # Maintenant Python reconnaît 'State' [cite: 2026-01-22]
+    s = me.state(State)
     if s.email:
         success, message = db.reset_password(s.email)
         s.error_message = message
