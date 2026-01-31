@@ -57,8 +57,8 @@ def render_profile_setup(s: State):
                     options=[
                         me.SelectOption(label="Débutant", value="Débutant"),
                         me.SelectOption(label="Intermédiaire", value="Intermédiaire"),
-                        me.SelectOption(label="Expert", value="Expert"),
-                        me.SelectOption(label="Compétiteur", value="Compétiteur")
+                        me.SelectOption(label="Confirmé", value="Confirmé"),
+                        me.SelectOption(label="Pro", value="Pro")
                     ], 
                     on_selection_change=on_niveau_change, 
                     style=me.Style(width="100%")
