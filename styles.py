@@ -203,52 +203,57 @@ LINK_STYLE = me.Style(
 # ==================================================
 NAVBAR_CONTAINER_STYLE = me.Style(
     display="flex",
-    gap=12,
+    gap=8, # Réduit un peu pour mobile
     justify_content="center",
-    margin=me.Margin(bottom=30),
+    margin=me.Margin(bottom=20),
+    flex_wrap="wrap", # Permet aux boutons de la nav de passer à la ligne sur petit écran
 )
 
 NAV_BUTTON_BASE_STYLE = me.Style(
     border_radius=999,
-    padding=me.Padding.symmetric(vertical=10, horizontal=20),
+    padding=me.Padding.symmetric(vertical=8, horizontal=16),
     font_weight="700",
-    font_size="0.75rem",
+    font_size="0.7rem", # Légèrement plus petit
     text_transform="uppercase",
     cursor="pointer",
 )
 
 CARDS_CONTAINER_STYLE = me.Style(
     display="flex",
-    gap=16,
+    gap=12, # Gap harmonisé avec le calcul des cartes
     justify_content="center",
     flex_wrap="wrap",
     width="100%",
     max_width=640,
-    margin=me.Margin(top=10),
+    margin=me.Margin(top=10, bottom=20),
 )
 
 METRIC_CARD_STYLE = me.Style(
     background=COLOR_CARD_BG,
-    padding=me.Padding.all(20),
+    padding=me.Padding.all(16), # Réduit un peu pour gagner de la place
     border_radius=20,
-    width="calc(50% - 10px)",
-    min_width=150,
+    # Ici le secret : 50% moins la moitié du gap pour que ça loge pile poil
+    width="calc(50% - 6px)", 
+    min_width=140, # Plus sécurisant pour les petits écrans (iPhone SE etc.)
     display="flex",
     flex_direction="column",
-    gap=8,
+    gap=4,
     border=me.Border.all(me.BorderSide(width=1, color="rgba(64,224,208,0.1)")),
+    box_sizing="border-box", # INDISPENSABLE pour que le padding ne fasse pas déborder la carte
 )
 
 CARD_LABEL_STYLE = me.Style(
     color=COLOR_PRIMARY,
-    font_size="0.8rem",
+    font_size="0.75rem",
     font_weight="700",
+    overflow_wrap="anywhere", # Empêche les mots longs de casser la carte
 )
 
 CARD_VALUE_STYLE = me.Style(
     color=COLOR_TEXT,
-    font_size="1.4rem",
+    font_size="1.2rem", # Réduit de 1.4 à 1.2 pour éviter que "16.5 km/h" ne sorte
     font_weight="800",
+    overflow_wrap="anywhere",
 )
 
 # ==================================================

@@ -64,11 +64,35 @@ def render_dashboard_subtitle(title: str):
     ))
 
 def render_metric_card(label: str, value: str, icon_name: str):
+    # --- LOGIQUE DYNAMIQUE DE TAILLE ---
+    # On définit une taille de base (1.3rem ou 1.4rem selon tes préférences)
+    size = "1.3rem" 
+    val_str = str(value).upper()
+    
+    # Ajustement selon la longueur du texte
+    if len(val_str) > 10:
+        size = "0.95rem"  # Très réduit pour les mots comme "INTERMÉDIAIRE"
+    elif len(val_str) > 8:
+        size = "1.1rem"   # Réduction modérée
+
     with me.box(style=st.METRIC_CARD_STYLE):
+        # En-tête : Libellé + Icône
         with me.box(style=me.Style(display="flex", justify_content="space-between", align_items="center")):
             me.text(label, style=st.CARD_LABEL_STYLE)
             me.icon(icon_name, style=me.Style(color=st.COLOR_PRIMARY, font_size=18))
-        me.text(str(value).upper(), style=st.CARD_VALUE_STYLE)
+        
+        # Valeur avec style injecté dynamiquement
+        me.text(
+            val_str, 
+            style=me.Style(
+                color=st.COLOR_TEXT,
+                font_size=size, # <-- C'est ici que la magie opère
+                font_weight="800",
+                white_space="nowrap",
+                overflow="hidden",
+                text_overflow="ellipsis" # Sécurité : ajoute "..." si vraiment ça ne loge pas
+            )
+        )
 
 # --- ÉCRAN PRINCIPAL ---
 
@@ -134,7 +158,7 @@ def dashboard_screen(s: State):
                     render_pace_card("ENDURANCE (65%)", calculate_pace(vma_val, 0.65))
                     render_pace_card("SEUIL (85%)", calculate_pace(vma_val, 0.85))
                     render_pace_card("VMA (100%)", calculate_pace(vma_val, 1.0))
-                    
+
         # --- SECTION : RENFORCEMENT ---
         render_dashboard_subtitle("RENFORCEMENT")
         with me.box(style=me.Style(width="100%", display="flex", justify_content="center", margin=me.Margin(top=10))):
