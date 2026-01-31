@@ -123,16 +123,23 @@ def main():
             s.user_id = res.user.id
             s.email = res.user.email
             s.current_page = "password_edit"
+            
+            # --- NETTOYAGE DE L'URL ---
+            # On redirige vers la racine pour enlever le token de la barre d'adresse.
+            # Cela ancre la session et évite l'erreur "auth session missing".
+            me.navigate("/")
+            return 
 
     with me.box(style=st.MAIN_BOX_STYLE):
         # HEADER
         cp.render_header(s, on_logout=handle_logout)
         
+        # SÉPARATEUR VISUEL
         with me.box(style=me.Style(
-            height=1,               # Épaisseur de la ligne
+            height=1,                   # Ligne fine
             width="100%", 
-            background="#e5e5e5",   # Couleur de la ligne (gris clair par ex)
-            margin=me.Margin(bottom=20) # C'est ICI que tu gères l'espace (40px)
+            background="#e5e5e5",       # Gris clair
+            margin=me.Margin(bottom=30) # Espace généreux sous la ligne (30px)
         )):
             pass
 
