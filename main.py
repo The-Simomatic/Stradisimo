@@ -94,7 +94,7 @@ def handle_logout(e: me.ClickEvent):
 
 # --- CONFIGURATION DE LA PAGE PRINCIPALE ---
 
-@me.page(path="/", title="Stradisimo", stylesheets=[st.FONTS_URL])
+@me.page(path="/", title="Stradisimo - Entrainement Vélo et Course à Pied", stylesheets=[st.FONTS_URL])
 def main():
     s = me.state(State)
     
