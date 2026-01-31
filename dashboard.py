@@ -1,6 +1,7 @@
 import mesop as me
 import styles as st
 from state import State
+from datetime import datetime
 
 # --- ACTIONS ---
 
@@ -94,6 +95,20 @@ def render_metric_card(label: str, value: str, icon_name: str):
             )
         )
 
+def calculate_age(birth_date_str: str) -> str:
+    """Calcule l'âge à partir d'une chaîne YYYY-MM-DD"""
+    if not birth_date_str or birth_date_str == "--/--/----":
+        return "N/A"
+    try:
+        # On adapte selon le format stocké (souvent YYYY-MM-DD avec Supabase)
+        birth_date = datetime.strptime(birth_date_str, "%Y-%m-%d")
+        today = datetime.today()
+        age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        return f"{age} ANS"
+    except Exception:
+        return "N/A"
+    
+
 # --- ÉCRAN PRINCIPAL ---
 
 def dashboard_screen(s: State):
@@ -106,9 +121,17 @@ def dashboard_screen(s: State):
         # --- SECTION : DONNÉES PERSONNELLES ---
         render_dashboard_subtitle("DONNÉES PERSONNELLES")
         with me.box(style=st.CARDS_CONTAINER_STYLE):
+            # Sport préféré
             render_metric_card("SPORT PRÉFÉRÉ", s.sport_pref or "NON DÉFINI", "fitness_center")
+            
+            # Niveau
             render_metric_card("NIVEAU", s.niveau or "DÉBUTANT", "speed")
-            render_metric_card("NAISSANCE", s.date_n or "--/--/----", "event")
+            
+            # ÂGE (Calculé dynamiquement au lieu de la date de naissance)
+            age_display = calculate_age(s.date_n)
+            render_metric_card("ÂGE", age_display, "cake")
+            
+            # Poids
             render_metric_card("POIDS", f"{s.poids} KG" if s.poids else "N/A", "monitor_weight")
 
         # --- SECTION : DERNIÈRES ACTIVITÉS STRAVA ---
