@@ -1,8 +1,11 @@
 from supabase import create_client, Client
+from datetime import datetime
 import config as cfg
 
-# Initialisation du client Supabase
+# --- INITIALISATION ---
 supabase: Client = create_client(cfg.SUPABASE_URL, cfg.SUPABASE_KEY)
+
+# --- AUTHENTIFICATION ---
 
 def login_user(email, password):
     """Tente de connecter l'utilisateur via Supabase Auth."""
@@ -14,6 +17,7 @@ def login_user(email, password):
         return {"user": response.user, "session": response.session, "error": None}
     except Exception as e:
         error_msg = str(e)
+        # Personnalisation des messages d'erreur courants
         if "Invalid login credentials" in error_msg:
             return {"user": None, "session": None, "error": "Email ou mot de passe incorrect."}
         return {"user": None, "session": None, "error": f"Erreur de connexion : {error_msg}"}
@@ -32,6 +36,8 @@ def signup_user(email, password):
             return {"user": None, "error": "Cet email est déjà utilisé."}
         return {"user": None, "error": error_msg}
 
+# --- RÉCUPÉRATION DE COMPTE ---
+
 def reset_password(email):
     """Envoie un e-mail de réinitialisation de mot de passe."""
     try:
@@ -41,10 +47,7 @@ def reset_password(email):
         return False, f"Erreur : {str(e)}"
 
 def verify_recovery_token(token):
-    """
-    Échange le token reçu par mail contre une session active.
-    CORRIGE L'ERREUR : 'Auth session missing'
-    """
+    """Échange le token reçu par mail contre une session active."""
     try:
         response = supabase.auth.verify_otp({"token": token, "type": "recovery"})
         return True, response
@@ -52,15 +55,17 @@ def verify_recovery_token(token):
         return False, str(e)
 
 def update_user_password(new_password):
-    """Met à jour le mot de passe de l'utilisateur actuellement en session."""
+    """Met à jour le mot de passe de l'utilisateur en session (suite à une récupération)."""
     try:
         supabase.auth.update_user({"password": new_password})
         return True, "Votre mot de passe a été mis à jour avec succès."
     except Exception as e:
         return False, f"Erreur lors de la mise à jour : {str(e)}"
 
+# --- GESTION DU PROFIL (DATABASE) ---
+
 def get_current_user_email():
-    """Récupère l'email de l'utilisateur en session."""
+    """Récupère l'email de l'utilisateur actuellement connecté."""
     try:
         user_response = supabase.auth.get_user()
         if user_response and user_response.user:
@@ -70,26 +75,34 @@ def get_current_user_email():
         return None
 
 def get_user_profile(user_id):
-    """Récupère les données du profil utilisateur."""
+    """
+    Récupère les données du profil. 
+    Retourne (data, error). Si le profil n'existe pas, data sera None.
+    """
     try:
-        response = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-        return response.data, None
+        # .single() peut lever une exception si aucun enregistrement n'est trouvé
+        response = supabase.table("profiles").select("*").eq("id", user_id).execute()
+        
+        if response.data and len(response.data) > 0:
+            return response.data[0], None
+        return None, "Aucun profil trouvé."
     except Exception as e:
         return None, str(e)
 
 def update_profile(user_id, data):
     """
     Crée ou met à jour le profil dans la table 'profiles'.
-    Respecte les intitulés : prenom, nom, date_n, poids, niveau, sexe.
+    data : dictionnaire contenant prenom, nom, date_n, poids, niveau, sexe, vma, etc.
     """
     try:
-        # Ajout automatique de l'ID et de la date de mise à jour
+        # On utilise le format ISO de Python pour la date de mise à jour
         payload = {
             "id": user_id,
-            "updated_at": "now()",
+            "updated_at": datetime.now().isoformat(),
             **data
         }
-        response = supabase.table("profiles").upsert(payload).execute()
-        return True, "Profil enregistré avec succès."
+        # upsert gère l'INSERT ou l'UPDATE automatiquement selon la Primary Key (id)
+        supabase.table("profiles").upsert(payload).execute()
+        return True, "Profil mis à jour avec succès."
     except Exception as e:
         return False, f"Erreur base de données : {str(e)}"

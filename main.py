@@ -17,7 +17,7 @@ import supabase_db as db
 # --- UTILITAIRES ---
 
 def update_state_from_profile(s: State, profile: dict):
-    """Met à jour les variables d'état à partir des données Supabase."""
+    """Met à jour les variables d'état à partir des données Supabase avec conversion de types."""
     if profile:
         s.prenom = profile.get("prenom") or ""
         s.nom = profile.get("nom") or ""
@@ -26,6 +26,11 @@ def update_state_from_profile(s: State, profile: dict):
         s.date_n = profile.get("date_n") or ""
         s.sexe = profile.get("sexe") or ""
         s.sport_pref = profile.get("sport_pref") or ""
+        # Conversion sécurisée de la VMA (numeric -> float)
+        try:
+            s.vma = float(profile.get("vma") or 0.0)
+        except (ValueError, TypeError):
+            s.vma = 0.0
 
 # --- GESTIONNAIRES D'ÉVÉNEMENTS ---
 
@@ -61,13 +66,12 @@ def handle_login(e: me.ClickEvent):
         s.is_logged_in = True
         
         # --- LOGIQUE DE REDIRECTION POST-LOGIN ---
-        # Si le nom ou prénom manque, on force le setup du profil
         if not s.prenom or not s.nom:
             s.is_completing_profile = True
             s.current_page = "profile_edit"
         else:
             s.is_completing_profile = False
-            s.current_page = "dashboard" # REDIRECTION FORCÉE ICI
+            s.current_page = "dashboard"
             
         s.error_message = ""
     
@@ -79,7 +83,7 @@ def handle_logout(e: me.ClickEvent):
     db.supabase.auth.sign_out()
     s.is_logged_in = False
     s.user_id = ""
-    s.current_page = "login" # Retour à la case départ
+    s.current_page = "login"
     s.email = ""
     s.password = ""
     s.error_message = ""
@@ -111,7 +115,7 @@ def main():
         except:
             pass
 
-    # 2. RÉCUPÉRATION : Mode recovery via URL
+    # 2. RÉCUPÉRATION : Mode recovery via URL (Mot de passe oublié)
     params = me.query_params
     token = params.get("token")
     is_recovery_mode = params.get("type") == "recovery"
@@ -124,9 +128,7 @@ def main():
             s.email = res.user.email
             s.current_page = "password_edit"
             
-            # --- NETTOYAGE DE L'URL ---
-            # On redirige vers la racine pour enlever le token de la barre d'adresse.
-            # Cela ancre la session et évite l'erreur "auth session missing".
+            # Nettoyage de l'URL pour ancrer la session Supabase
             me.navigate("/")
             return 
 
@@ -134,22 +136,22 @@ def main():
         # HEADER
         cp.render_header(s, on_logout=handle_logout)
         
-        # SÉPARATEUR VISUEL
+        # SÉPARATEUR VISUEL (Adapté au thème bleu nuit / turquoise)
         with me.box(style=me.Style(
-            height=1,                   # Ligne fine
+            height=1,
             width="100%", 
-            background="#e5e5e5",       # Gris clair
-            margin=me.Margin(bottom=30) # Espace généreux sous la ligne (30px)
+            background="rgba(40, 165, 168, 0.3)", # Turquoise subtil
+            margin=me.Margin(bottom=30)
         )):
             pass
 
         # --- LOGIQUE DE NAVIGATION ---
         
-        # A. Consultation CGU
+        # A. Consultation CGU (Toujours prioritaire)
         if s.current_page == "cgu":
             cgu_screen(s)
 
-        # B. Mot de passe oublié (Lien email)
+        # B. Mot de passe oublié (Lien email actif)
         elif is_recovery_mode:
             render_password_reset(s)
 
@@ -168,18 +170,23 @@ def main():
         else:
             cp.render_navbar(s)
 
-            # SÉCURITÉ : Empêche l'écran vide si current_page n'est pas reconnu
+            # Sécurité des routes
             valid_pages = ["dashboard", "planning", "cv", "settings", "profile_edit", "password_edit"]
             if s.current_page not in valid_pages:
                 s.current_page = "dashboard"
 
             with me.box(style=me.Style(
                 width="100%", 
-                margin=me.Margin.symmetric(vertical=20),
+                max_width=800,
+                margin=me.Margin.symmetric(vertical=10),
                 display="flex",
                 flex_direction="column",
                 align_items="center"
             )):
+                # Loader discret si une action est en cours
+                if s.is_loading:
+                    me.progress_spinner(style=me.Style(margin=me.Margin(bottom=20)))
+
                 if s.current_page == "dashboard":
                     dashboard_screen(s)
                 elif s.current_page == "planning":
