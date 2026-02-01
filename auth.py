@@ -60,6 +60,9 @@ def on_update_password_click(e: me.ClickEvent):
     s.is_loading = False
     if success:
         s.error_message = "Succès ! Mot de passe modifié."
+        # Reset après succès
+        s.password = ""
+        s.show_password_text = False
         me.navigate("/") 
     else:
         s.error_message = f"Erreur : {message}"
@@ -67,6 +70,7 @@ def on_update_password_click(e: me.ClickEvent):
 def toggle_auth_mode(e: me.ClickEvent):
     s = me.state(State)
     s.show_signup = not s.show_signup
+    # RESET COMPLET lors de la navigation entre écrans
     s.error_message = ""
     s.password = ""
     s.password_confirm = ""
@@ -83,7 +87,12 @@ def on_signup_click(e: me.ClickEvent):
     if result["error"]:
         s.error_message = f"Erreur : {result['error']}"
     else:
-        s.error_message = "Compte créé ! Vérifiez vos emails."
+        # Message neutre (Best practice sécurité)
+        s.error_message = "Si cet email est valide, un lien de confirmation vous a été envoyé. Vérifiez votre boîte de réception."
+        # Reset après inscription
+        s.password = ""
+        s.password_confirm = ""
+        s.show_password_text = False
         s.show_signup = False
 
 def on_view_cgu(e: me.ClickEvent):
@@ -106,15 +115,16 @@ def render_login(s: State, on_login):
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         me.text("CONNEXION", style=st.LOGIN_TITLE_STYLE)
         
-        # Email avec style unifié
+        # Champ Email
         with me.box(style=me.Style(width="100%", margin=me.Margin(bottom=10))):
             me.input(key="login_email", label="Email", on_input=on_email_input, style=st.INPUT_STYLE)
         
-        # Mot de passe avec OEIL et style unifié
+        # Champ Mot de passe avec OEIL et Reset de valeur
         with me.box(style=me.Style(width="100%", position="relative", margin=me.Margin(bottom=5))):
             me.input(
                 label="Mot de passe",
                 type="text" if s.show_password_text else "password",
+                value=s.password,
                 on_input=on_password_input,
                 style=st.INPUT_STYLE
             )
@@ -135,22 +145,23 @@ def render_login(s: State, on_login):
             me.text("Pas de compte ? Créer un profil", style=st.LINK_STYLE)
 
         if s.error_message:
-            is_success = "envoyé" in s.error_message.lower()
+            is_success = "envoyé" in s.error_message.lower() or "succès" in s.error_message.lower()
             me.text(s.error_message, style=st.SUCCESS_TEXT_STYLE if is_success else st.ERROR_TEXT_STYLE)
 
 def render_signup(s: State):
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         me.text("CRÉATION DE COMPTE", style=st.LOGIN_TITLE_STYLE)
         
-        # Email avec style unifié
+        # Champ Email
         with me.box(style=me.Style(width="100%", margin=me.Margin(bottom=10))):
             me.input(key="signup_email", label="Email", type="email", on_input=on_email_input, style=st.INPUT_STYLE)
         
-        # Mot de passe (1) avec style unifié
+        # Mot de passe (1) avec Reset de valeur
         with me.box(style=me.Style(width="100%", position="relative", margin=me.Margin(bottom=10))):
             me.input(
                 label="Mot de passe",
                 type="text" if s.show_password_text else "password",
+                value=s.password,
                 on_input=on_password_input,
                 style=st.INPUT_STYLE
             )
@@ -158,11 +169,12 @@ def render_signup(s: State):
                                    style=me.Style(position="absolute", right=4, top=12, z_index=10)):
                 me.icon(icon="visibility" if not s.show_password_text else "visibility_off")
         
-        # Mot de passe (2) avec style unifié
+        # Mot de passe (2) avec Reset de valeur
         with me.box(style=me.Style(width="100%", position="relative", margin=me.Margin(bottom=5))):
             me.input(
                 label="Confirmer le mot de passe",
                 type="text" if s.show_password_text else "password",
+                value=s.password_confirm,
                 on_input=on_password_confirm_input,
                 style=st.INPUT_STYLE
             )
@@ -213,11 +225,12 @@ def render_password_reset(s: State):
              me.text(f"Réinitialisation pour : {user_email}", 
                    style=me.Style(font_size="0.85rem", color=st.COLOR_PRIMARY, margin=me.Margin(bottom=15)))
         
-        # Nouveau MDP avec style unifié
+        # Nouveau MDP avec Reset de valeur
         with me.box(style=me.Style(width="100%", position="relative", margin=me.Margin(bottom=5))):
             me.input(
                 label="Nouveau mot de passe",
                 type="text" if s.show_password_text else "password",
+                value=s.password,
                 on_input=on_password_input,
                 style=st.INPUT_STYLE
             )

@@ -8,7 +8,6 @@ def render_profile_setup(s: State):
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         
         # --- SOLUTION ANTI-AUTOCOMPLÉTION (LEURRES) ---
-        # Ces champs sont invisibles mais capturent l'autofill du navigateur
         with me.box(style=me.Style(display="none")):
             me.input(label="fake-email", type="email")
             me.input(label="fake-password", type="password")
@@ -30,42 +29,20 @@ def render_profile_setup(s: State):
             me.text("Certaines informations sont requises pour continuer.", 
                     style=me.Style(font_size="0.85rem", margin=me.Margin(bottom=20), color="#666"))
 
-        # --- CHAMPS OBLIGATOIRES AVEC KEYS UNIQUES ---
-        # L'ajout de '_field' dans la key brouille les pistes des gestionnaires de MDP
-        me.input(
-            label="Prénom*", 
-            key="usr_firstname_field", 
-            value=s.prenom, 
-            on_input=on_prenom_input, # Passé en on_input pour plus de réactivité
-            style=st.INPUT_STYLE
-        )
-        me.input(
-            label="Nom*", 
-            key="usr_lastname_field", 
-            value=s.nom, 
-            on_input=on_nom_input, 
-            style=st.INPUT_STYLE
-        )
-        me.input(
-            label="Date de naissance*", 
-            key="usr_birth_field",
-            type="date", 
-            value=s.date_n, 
-            on_input=on_date_n_input, 
-            style=st.INPUT_STYLE
-        )
+        # --- CHAMPS OBLIGATOIRES ---
+        with me.box(style=me.Style(width="100%", margin=me.Margin(bottom=10))):
+            me.input(label="Prénom*", key="usr_firstname_field", value=s.prenom, on_input=on_prenom_input, style=st.INPUT_STYLE)
+
+        with me.box(style=me.Style(width="100%", margin=me.Margin(bottom=10))):
+            me.input(label="Nom*", key="usr_lastname_field", value=s.nom, on_input=on_nom_input, style=st.INPUT_STYLE)
+
+        with me.box(style=me.Style(width="100%", margin=me.Margin(bottom=10))):
+            me.input(label="Date de naissance*", key="usr_birth_field", type="date", value=s.date_n, on_input=on_date_n_input, style=st.INPUT_STYLE)
         
         # --- LIGNE POIDS & SEXE ---
         with me.box(style=me.Style(display="flex", flex_direction="row", flex_wrap="wrap", gap=10, width="100%", margin=me.Margin(bottom=10))):
             with me.box(style=me.Style(flex_grow=1, min_width="140px")):
-                me.input(
-                    label="Poids (kg)", 
-                    key="usr_weight_field",
-                    type="number", 
-                    value=str(s.poids) if s.poids else "", 
-                    on_input=on_poids_input, 
-                    style=me.Style(width="100%")
-                )
+                me.input(label="Poids (kg)", key="usr_weight_field", type="number", value=str(s.poids) if s.poids else "", on_input=on_poids_input, style=st.INPUT_STYLE)
             
             with me.box(style=me.Style(flex_grow=1, min_width="140px")):
                 me.select(
@@ -78,7 +55,7 @@ def render_profile_setup(s: State):
                         me.SelectOption(label="Autre", value="Autre")
                     ], 
                     on_selection_change=on_sexe_change, 
-                    style=me.Style(width="100%")
+                    style=st.INPUT_STYLE
                 )
 
         # --- NIVEAU & VMA ---
@@ -94,45 +71,33 @@ def render_profile_setup(s: State):
                         me.SelectOption(label="Pro", value="Pro")
                     ], 
                     on_selection_change=on_niveau_change, 
-                    style=me.Style(width="100%")
+                    style=st.INPUT_STYLE
                 )
             
             with me.box(style=me.Style(flex_grow=1, min_width="140px")):
-                me.input(
-                    label="VMA (km/h)", 
-                    key="usr_vma_field",
-                    type="number", 
-                    style=me.Style(width="100%"),
-                    value=str(s.vma) if s.vma > 0 else "", 
-                    on_input=on_vma_input, 
-                )
+                me.input(label="VMA (km/h)", key="usr_vma_field", type="number", style=st.INPUT_STYLE, value=str(s.vma) if s.vma > 0 else "", on_input=on_vma_input)
 
         # --- CHOIX DU SPORT ---
         sport_options = ["Course à pied", "Vélo"]
         current_sport_choice = s.sport_pref if s.sport_pref in sport_options else ("" if not s.sport_pref else "Autre")
         
-        me.select(
-            label="Sport principal", 
-            value=current_sport_choice,
-            options=[
-                me.SelectOption(label="Choisir un sport...", value=""),
-                me.SelectOption(label="Course à pied", value="Course à pied"),
-                me.SelectOption(label="Vélo", value="Vélo"),
-                me.SelectOption(label="Autre...", value="Autre")
-            ], 
-            on_selection_change=on_sport_main_change, 
-            style=me.Style(width="100%", margin=me.Margin(top=5))
-        )
+        with me.box(style=me.Style(width="100%", margin=me.Margin(bottom=10))):
+            me.select(
+                label="Sport principal", 
+                value=current_sport_choice,
+                options=[
+                    me.SelectOption(label="Choisir un sport...", value=""),
+                    me.SelectOption(label="Course à pied", value="Course à pied"),
+                    me.SelectOption(label="Vélo", value="Vélo"),
+                    me.SelectOption(label="Autre...", value="Autre")
+                ], 
+                on_selection_change=on_sport_main_change, 
+                style=st.INPUT_STYLE
+            )
 
         if current_sport_choice == "Autre":
-            me.input(
-                label="Précisez votre sport", 
-                key="usr_sport_custom_field",
-                value="" if s.sport_pref == "Autre" else s.sport_pref, 
-                on_input=on_sport_pref_input, 
-                style=st.INPUT_STYLE,
-                placeholder="Ex: Natation, Trail, Tennis..."
-            )
+            with me.box(style=me.Style(width="100%", margin=me.Margin(bottom=10))):
+                me.input(label="Précisez votre sport", key="usr_sport_custom_field", value="" if s.sport_pref == "Autre" else s.sport_pref, on_input=on_sport_pref_input, style=st.INPUT_STYLE, placeholder="Ex: Natation, Trail, Tennis...")
 
         # --- BOUTON DE VALIDATION ---
         with me.box(style=me.Style(margin=me.Margin(top=25), display="flex", flex_direction="column", align_items="center")):
@@ -145,7 +110,7 @@ def render_profile_setup(s: State):
         if s.error_message:
             me.text(s.error_message, style=st.ERROR_TEXT_STYLE)
 
-# --- GESTIONNAIRES D'ÉVÉNEMENTS (Optimisés en on_input) ---
+# --- GESTIONNAIRES D'ÉVÉNEMENTS ---
 
 def on_prenom_input(e: me.InputEvent):
     me.state(State).prenom = e.value
@@ -187,18 +152,14 @@ def on_sport_pref_input(e: me.InputEvent):
 
 def on_save_profile_click(e: me.ClickEvent):
     s = me.state(State)
-    
     if not s.prenom or not s.nom or not s.date_n or not s.sport_pref:
         s.error_message = "Veuillez remplir les champs obligatoires (*) et le sport."
         return
-
     s.is_loading = True
-    
     try:
         poids_final = float(str(s.poids).replace(",", ".")) if s.poids else None
     except:
         poids_final = None
-        
     vma_final = round(float(s.vma), 1) if s.vma else None
 
     profile_data = {
@@ -211,10 +172,8 @@ def on_save_profile_click(e: me.ClickEvent):
         "sport_pref": s.sport_pref,
         "vma": vma_final
     }
-    
     success, message = db.update_profile(s.user_id, profile_data)
     s.is_loading = False
-    
     if success:
         s.error_message = ""
         s.is_completing_profile = False
