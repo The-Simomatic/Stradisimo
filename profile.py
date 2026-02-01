@@ -7,6 +7,12 @@ def render_profile_setup(s: State):
     """Écran de configuration du profil (Initial ou Edition)."""
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         
+        # --- SOLUTION ANTI-AUTOCOMPLÉTION (LEURRES) ---
+        # Ces champs sont invisibles mais capturent l'autofill du navigateur
+        with me.box(style=me.Style(display="none")):
+            me.input(label="fake-email", type="email")
+            me.input(label="fake-password", type="password")
+
         # --- BOUTON RETOUR ---
         if not s.is_completing_profile:
             with me.box(
@@ -24,15 +30,42 @@ def render_profile_setup(s: State):
             me.text("Certaines informations sont requises pour continuer.", 
                     style=me.Style(font_size="0.85rem", margin=me.Margin(bottom=20), color="#666"))
 
-        # --- CHAMPS OBLIGATOIRES ---
-        me.input(label="Prénom*", value=s.prenom, on_blur=on_prenom_blur, style=st.INPUT_STYLE)
-        me.input(label="Nom*", value=s.nom, on_blur=on_nom_blur, style=st.INPUT_STYLE)
-        me.input(label="Date de naissance*", type="date", value=s.date_n, on_input=on_date_n_input, style=st.INPUT_STYLE)
+        # --- CHAMPS OBLIGATOIRES AVEC KEYS UNIQUES ---
+        # L'ajout de '_field' dans la key brouille les pistes des gestionnaires de MDP
+        me.input(
+            label="Prénom*", 
+            key="usr_firstname_field", 
+            value=s.prenom, 
+            on_input=on_prenom_input, # Passé en on_input pour plus de réactivité
+            style=st.INPUT_STYLE
+        )
+        me.input(
+            label="Nom*", 
+            key="usr_lastname_field", 
+            value=s.nom, 
+            on_input=on_nom_input, 
+            style=st.INPUT_STYLE
+        )
+        me.input(
+            label="Date de naissance*", 
+            key="usr_birth_field",
+            type="date", 
+            value=s.date_n, 
+            on_input=on_date_n_input, 
+            style=st.INPUT_STYLE
+        )
         
         # --- LIGNE POIDS & SEXE ---
         with me.box(style=me.Style(display="flex", flex_direction="row", flex_wrap="wrap", gap=10, width="100%", margin=me.Margin(bottom=10))):
             with me.box(style=me.Style(flex_grow=1, min_width="140px")):
-                me.input(label="Poids (kg)", type="number", value=str(s.poids) if s.poids else "", on_blur=on_poids_blur, style=me.Style(width="100%"))
+                me.input(
+                    label="Poids (kg)", 
+                    key="usr_weight_field",
+                    type="number", 
+                    value=str(s.poids) if s.poids else "", 
+                    on_input=on_poids_input, 
+                    style=me.Style(width="100%")
+                )
             
             with me.box(style=me.Style(flex_grow=1, min_width="140px")):
                 me.select(
@@ -67,15 +100,15 @@ def render_profile_setup(s: State):
             with me.box(style=me.Style(flex_grow=1, min_width="140px")):
                 me.input(
                     label="VMA (km/h)", 
+                    key="usr_vma_field",
                     type="number", 
                     style=me.Style(width="100%"),
                     value=str(s.vma) if s.vma > 0 else "", 
-                    on_blur=on_vma_blur, 
+                    on_input=on_vma_input, 
                 )
 
-        # --- CHOIX DU SPORT (Logique Dynamique) ---
+        # --- CHOIX DU SPORT ---
         sport_options = ["Course à pied", "Vélo"]
-        # Détermine si on doit afficher "Autre" ou laisser vide
         current_sport_choice = s.sport_pref if s.sport_pref in sport_options else ("" if not s.sport_pref else "Autre")
         
         me.select(
@@ -94,8 +127,9 @@ def render_profile_setup(s: State):
         if current_sport_choice == "Autre":
             me.input(
                 label="Précisez votre sport", 
+                key="usr_sport_custom_field",
                 value="" if s.sport_pref == "Autre" else s.sport_pref, 
-                on_blur=on_sport_pref_blur, 
+                on_input=on_sport_pref_input, 
                 style=st.INPUT_STYLE,
                 placeholder="Ex: Natation, Trail, Tennis..."
             )
@@ -111,19 +145,18 @@ def render_profile_setup(s: State):
         if s.error_message:
             me.text(s.error_message, style=st.ERROR_TEXT_STYLE)
 
-# --- GESTIONNAIRES D'ÉVÉNEMENTS ---
+# --- GESTIONNAIRES D'ÉVÉNEMENTS (Optimisés en on_input) ---
 
-def on_prenom_blur(e: me.InputEvent):
+def on_prenom_input(e: me.InputEvent):
     me.state(State).prenom = e.value
 
-def on_nom_blur(e: me.InputEvent):
+def on_nom_input(e: me.InputEvent):
     me.state(State).nom = e.value
 
 def on_date_n_input(e: me.InputEvent):
     me.state(State).date_n = e.value
 
-def on_poids_blur(e: me.InputEvent):
-    # Nettoyage immédiat pour autoriser la virgule visuelle mais stocker un point
+def on_poids_input(e: me.InputEvent):
     val = e.value.replace(",", ".")
     me.state(State).poids = val
 
@@ -133,13 +166,12 @@ def on_sexe_change(e: me.SelectSelectionChangeEvent):
 def on_niveau_change(e: me.SelectSelectionChangeEvent):
     me.state(State).niveau = e.value
 
-def on_vma_blur(e: me.InputEvent):
+def on_vma_input(e: me.InputEvent):
     s = me.state(State)
     try:
         if e.value.strip():
             val = float(e.value.replace(",", "."))
-            # Contrainte 8-22 et arrondi à 1 décimale (ex: 16.32 -> 16.3)
-            s.vma = round(max(8.0, min(22.0, val)), 1)
+            s.vma = round(max(1.0, min(30.0, val)), 1)
         else:
             s.vma = 0.0
     except ValueError:
@@ -149,21 +181,19 @@ def on_sport_main_change(e: me.SelectSelectionChangeEvent):
     s = me.state(State)
     s.sport_pref = e.value
 
-def on_sport_pref_blur(e: me.InputEvent):
+def on_sport_pref_input(e: me.InputEvent):
     if e.value.strip():
         me.state(State).sport_pref = e.value
 
 def on_save_profile_click(e: me.ClickEvent):
     s = me.state(State)
     
-    # Validation
     if not s.prenom or not s.nom or not s.date_n or not s.sport_pref:
         s.error_message = "Veuillez remplir les champs obligatoires (*) et le sport."
         return
 
     s.is_loading = True
     
-    # Préparation finale des données numériques
     try:
         poids_final = float(str(s.poids).replace(",", ".")) if s.poids else None
     except:

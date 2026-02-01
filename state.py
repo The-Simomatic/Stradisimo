@@ -1,6 +1,6 @@
 import mesop as me
 
-@me.stateclass # <--- Utilise impérativement ceci pour la définition
+@me.stateclass
 class State:
     # --- ÉTAT DE SESSION & AUTH ---
     is_logged_in: bool = False
@@ -8,6 +8,11 @@ class State:
     user_id: str = ""           
     email: str = ""             
     password: str = ""          
+    
+    # --- UI & SÉCURITÉ MOT DE PASSE ---
+    # Ajout de ces deux variables pour tes nouvelles fonctionnalités
+    show_password_text: bool = False  # Bascule pour l'icône "œil"
+    password_confirm: str = ""        # Stockage du deuxième champ de vérification
     
     # --- NAVIGATION ---
     current_page: str = "login" 
