@@ -175,7 +175,7 @@ def render_signup(s: State):
             me.text(s.error_message, style=st.ERROR_TEXT_STYLE)
 
 def render_password_reset(s: State):
-    user_email = db.get_current_user_email()
+    user_email = s.email
     
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         me.text("NOUVEAU MOT DE PASSE", style=st.LOGIN_TITLE_STYLE)
