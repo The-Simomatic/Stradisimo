@@ -51,6 +51,9 @@ def verify_recovery_token(token):
     """Échange le token reçu par mail contre une session active."""
     try:
         response = supabase.auth.verify_otp({"token": token, "type": "recovery"})
+        # IMPORTANT : On définit la session sur le client global pour que 
+        # l'appel suivant 'update_user' soit autorisé.
+        supabase.postgrest.auth(response.session.access_token) 
         return True, response
     except Exception as e:
         return False, str(e)

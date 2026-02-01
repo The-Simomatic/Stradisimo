@@ -99,25 +99,22 @@ def handle_logout(e: me.ClickEvent):
 def main():
     s = me.state(State)
     
-    # --- SECURITÉ : BLOC PERSISTANCE SUPPRIMÉ ---
-    # On ne demande plus au serveur "Qui est connecté" au chargement, 
-    # car le client Supabase global mélange les utilisateurs.
-    # Mesop gère la session via l'objet 's' tant que l'onglet est ouvert.
-
-    # GESTION RECOVERY (Mot de passe oublié)
+    # --- GESTION RECOVERY (Mot de passe oublié) ---
     params = me.query_params
     token = params.get("token")
+    # On harmonise le nom ici
     is_recovery_mode = params.get("type") == "recovery"
 
-    if is_recovery_mode and token and not s.is_logged_in:
+    if is_recovery_mode and token and s.current_page != "password_edit":
         success, res = db.verify_recovery_token(token)
         if success:
             s.is_logged_in = True
             s.user_id = res.user.id
             s.email = res.user.email
             s.current_page = "password_edit"
-            me.navigate("/")
-            return 
+        else:
+            s.error_message = "Lien de récupération invalide ou expiré."
+            s.current_page = "login"
 
     with me.box(style=st.MAIN_BOX_STYLE):
         cp.render_header(s, on_logout=handle_logout)
@@ -126,23 +123,26 @@ def main():
         with me.box(style=me.Style(height=1, width="100%", background="rgba(40, 165, 168, 0.3)", margin=me.Margin(bottom=30))):
             pass
 
-        # NAVIGATION
+        # --- NAVIGATION ---
         if s.current_page == "cgu":
             cgu_screen(s)
-        elif is_recovery_mode:
-            render_password_reset(s)
+        # Priorité à l'écran de reset si le state le demande
+        elif s.current_page == "password_edit":
+            password_reset_screen(s)
+        # Si on n'est pas connecté, login ou signup
         elif not s.is_logged_in:
             if s.show_signup:
                 render_signup(s)
             else:
                 render_login(s, on_login=handle_login)
+        # Si connecté mais profil incomplet
         elif s.is_logged_in and (s.is_completing_profile or not s.prenom or not s.nom):
             render_profile_setup(s)
+        # Sinon, accès aux pages internes
         else:
             cp.render_navbar(s)
             
-            # Sécurité des routes internes
-            valid_pages = ["dashboard", "planning", "cv", "settings", "profile_edit", "password_edit"]
+            valid_pages = ["dashboard", "planning", "cv", "settings", "profile_edit"]
             if s.current_page not in valid_pages:
                 s.current_page = "dashboard"
 
@@ -160,5 +160,3 @@ def main():
                     settings_screen(s)
                 elif s.current_page == "profile_edit":
                     render_profile_setup(s)
-                elif s.current_page == "password_edit":
-                    password_reset_screen(s)
