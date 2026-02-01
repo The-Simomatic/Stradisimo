@@ -11,7 +11,7 @@ from cgu import cgu_screen
 from profile import render_profile_setup 
 from password_reset import password_reset_screen
 
-# --- LOGIQUE BASE DE DONNÉES ---
+# --- LOGIQUE BASE DE DONNÉES  ---
 import supabase_db as db
 
 # --- UTILITAIRES ---
