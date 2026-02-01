@@ -32,18 +32,15 @@ def on_cgu_change(e: me.CheckboxChangeEvent):
     s.accept_cgu = e.checked
 
 def on_forgot_password_click(e: me.ClickEvent):
-    """Gère l'envoi du mail de reset, que l'email soit saisi ou déjà en session."""
     s = me.state(State)
+    email_to_use = s.email.strip() # .strip() pour éviter les espaces accidentels
     
-    # Priorité 1 : Email saisi dans le champ
-    # Priorité 2 : Email déjà stocké dans le State (si connecté)
-    email_to_use = s.email if s.email else db.get_current_user_email()
-    
-    if not email_to_use:
-        s.error_message = "Veuillez saisir votre email pour recevoir le lien."
+    if not email_to_use or "@" not in email_to_use:
+        s.error_message = "Saisissez votre email ci-dessus, puis cliquez ici."
         return
         
     s.is_loading = True
+    s.error_message = ""
     success, message = db.reset_password(email_to_use)
     s.error_message = message
     s.is_loading = False
@@ -128,7 +125,12 @@ def render_login(s: State, on_login):
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         me.text("CONNEXION", style=st.LOGIN_TITLE_STYLE)
         # on_input assure que s.email est rempli avant même de cliquer sur Valider
-        me.input(label="Email", on_blur=on_email_blur, style=st.INPUT_STYLE)
+        me.input(
+            key="login_email",  # <--- Crucial pour la fluidité
+            label="Email", 
+            on_input=on_email_blur, # On capte chaque touche
+            style=st.INPUT_STYLE
+        )
         me.input(label="Mot de passe", type="password", on_input=on_password_input, style=st.INPUT_STYLE)
         
         with me.box(on_click=on_forgot_password_click, style=me.Style(display="flex", justify_content="flex-end", width="100%", cursor="pointer")):
@@ -150,7 +152,13 @@ def render_login(s: State, on_login):
 def render_signup(s: State):
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         me.text("CRÉATION DE COMPTE", style=st.LOGIN_TITLE_STYLE)
-        me.input(label="Email", type="email", on_blur=on_email_blur, style=st.INPUT_STYLE)
+        me.input(
+            key="signup_email", # <--- Crucial pour la fluidité
+            label="Email", 
+            type="email", 
+            on_input=on_email_blur, 
+            style=st.INPUT_STYLE
+        )
         me.input(label="Mot de passe", type="password", on_input=on_password_input, style=st.INPUT_STYLE)
         
         render_password_hints(s)
