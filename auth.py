@@ -18,15 +18,15 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
 
 # --- GESTIONNAIRES D'ÉVÉNEMENTS ---
 
-def on_email_input(e: me.InputEvent):
+def on_email_blur(e: me.InputEvent):
     s = me.state(State)
     s.email = e.value
 
-def on_password_input(e: me.InputEvent):
+def on_password_blur(e: me.InputEvent):
     s = me.state(State)
     s.password = e.value
 
-def on_password_confirm_input(e: me.InputEvent):
+def on_password_confirm_blur(e: me.InputEvent):
     s = me.state(State)
     s.password_confirm = e.value
 
@@ -42,7 +42,7 @@ def on_forgot_password_click(e: me.ClickEvent):
     s = me.state(State)
     email_to_use = s.email.strip()
     if not email_to_use or "@" not in email_to_use:
-        s.error_message = "Saisissez votre email ci-dessus pour la récupération."
+        s.error_message = "Saisissez votre email ci-dessus pour la récupération (cliquez ailleurs pour valider)."
         return
     s.is_loading = True
     success, message = db.reset_password(email_to_use)
@@ -60,7 +60,6 @@ def on_update_password_click(e: me.ClickEvent):
     s.is_loading = False
     if success:
         s.error_message = "Succès ! Mot de passe modifié."
-        # Reset après succès
         s.password = ""
         s.show_password_text = False
         me.navigate("/") 
@@ -70,26 +69,35 @@ def on_update_password_click(e: me.ClickEvent):
 def toggle_auth_mode(e: me.ClickEvent):
     s = me.state(State)
     s.show_signup = not s.show_signup
-    # RESET COMPLET lors de la navigation entre écrans
     s.error_message = ""
+    # Reset total des champs pour éviter les résidus visuels entre écrans
     s.password = ""
     s.password_confirm = ""
     s.show_password_text = False
 
 def on_signup_click(e: me.ClickEvent):
     s = me.state(State)
-    is_strong, _ = validate_password_strength(s.password)
-    if s.password != s.password_confirm or not is_strong or not s.accept_cgu:
+    is_strong, strength_msg = validate_password_strength(s.password)
+    
+    if s.password != s.password_confirm:
+        s.error_message = "Les mots de passe ne correspondent pas."
         return
+    if not is_strong:
+        s.error_message = strength_msg
+        return
+    if not s.accept_cgu:
+        s.error_message = "Veuillez accepter les CGU."
+        return
+        
     s.is_loading = True
     result = db.signup_user(s.email, s.password)
     s.is_loading = False
+    
     if result["error"]:
         s.error_message = f"Erreur : {result['error']}"
     else:
-        # Message neutre (Best practice sécurité)
-        s.error_message = "Si cet email est valide, un lien de confirmation vous a été envoyé. Vérifiez votre boîte de réception."
-        # Reset après inscription
+        s.error_message = "Si cet email est valide, un lien de confirmation vous a été envoyé."
+        # Nettoyage strict avant de changer d'écran
         s.password = ""
         s.password_confirm = ""
         s.show_password_text = False
@@ -115,17 +123,16 @@ def render_login(s: State, on_login):
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         me.text("CONNEXION", style=st.LOGIN_TITLE_STYLE)
         
-        # Champ Email
         with me.box(style=me.Style(width="100%", margin=me.Margin(bottom=10))):
-            me.input(key="login_email", label="Email", on_input=on_email_input, style=st.INPUT_STYLE)
+            me.input(key="login_email", label="Email", on_blur=on_email_blur, style=st.INPUT_STYLE)
         
-        # Champ Mot de passe avec OEIL et Reset de valeur
         with me.box(style=me.Style(width="100%", position="relative", margin=me.Margin(bottom=5))):
             me.input(
+                key="login_password", # Key unique
                 label="Mot de passe",
                 type="text" if s.show_password_text else "password",
-                value=s.password,
-                on_input=on_password_input,
+                value=s.password,     # Force la synchronisation
+                on_blur=on_password_blur,
                 style=st.INPUT_STYLE
             )
             with me.content_button(type="icon", on_click=toggle_password_visibility, 
@@ -152,30 +159,29 @@ def render_signup(s: State):
     with me.box(style=st.LOGIN_FORM_CONTAINER):
         me.text("CRÉATION DE COMPTE", style=st.LOGIN_TITLE_STYLE)
         
-        # Champ Email
         with me.box(style=me.Style(width="100%", margin=me.Margin(bottom=10))):
-            me.input(key="signup_email", label="Email", type="email", on_input=on_email_input, style=st.INPUT_STYLE)
+            me.input(key="signup_email", label="Email", type="email", on_blur=on_email_blur, style=st.INPUT_STYLE)
         
-        # Mot de passe (1) avec Reset de valeur
         with me.box(style=me.Style(width="100%", position="relative", margin=me.Margin(bottom=10))):
             me.input(
+                key="signup_password", # Key unique
                 label="Mot de passe",
                 type="text" if s.show_password_text else "password",
-                value=s.password,
-                on_input=on_password_input,
+                value=s.password,      # Force la synchronisation
+                on_blur=on_password_blur,
                 style=st.INPUT_STYLE
             )
             with me.content_button(type="icon", on_click=toggle_password_visibility, 
                                    style=me.Style(position="absolute", right=4, top=12, z_index=10)):
                 me.icon(icon="visibility" if not s.show_password_text else "visibility_off")
         
-        # Mot de passe (2) avec Reset de valeur
         with me.box(style=me.Style(width="100%", position="relative", margin=me.Margin(bottom=5))):
             me.input(
+                key="signup_password_confirm", # Key unique
                 label="Confirmer le mot de passe",
                 type="text" if s.show_password_text else "password",
-                value=s.password_confirm,
-                on_input=on_password_confirm_input,
+                value=s.password_confirm,      # Force la synchronisation
+                on_blur=on_password_confirm_blur,
                 style=st.INPUT_STYLE
             )
             with me.content_button(type="icon", on_click=toggle_password_visibility, 
@@ -189,15 +195,13 @@ def render_signup(s: State):
 
         render_password_hints(s)
 
-        # CGU
         with me.box(style=me.Style(margin=me.Margin(top=10), display="flex", align_items="center", gap=10)):
             me.checkbox(label="", on_change=on_cgu_change)
             me.text("J'accepte les ", style=me.Style(font_size="0.8rem", color=st.COLOR_TEXT))
             with me.box(on_click=on_view_cgu, style=me.Style(cursor="pointer")):
                 me.text("CGU", style=me.Style(font_size="0.8rem", color=st.COLOR_PRIMARY, text_decoration="underline"))
 
-        is_pwd_strong, _ = validate_password_strength(s.password)
-        is_disabled = not s.accept_cgu or not match or not is_pwd_strong
+        is_disabled = not s.accept_cgu
         
         with me.box(style=me.Style(display="flex", flex_direction="column", align_items="center", margin=me.Margin(top=20))):
             if s.is_loading:
@@ -225,13 +229,13 @@ def render_password_reset(s: State):
              me.text(f"Réinitialisation pour : {user_email}", 
                    style=me.Style(font_size="0.85rem", color=st.COLOR_PRIMARY, margin=me.Margin(bottom=15)))
         
-        # Nouveau MDP avec Reset de valeur
         with me.box(style=me.Style(width="100%", position="relative", margin=me.Margin(bottom=5))):
             me.input(
+                key="reset_password", # Key unique
                 label="Nouveau mot de passe",
                 type="text" if s.show_password_text else "password",
                 value=s.password,
-                on_input=on_password_input,
+                on_blur=on_password_blur,
                 style=st.INPUT_STYLE
             )
             with me.content_button(type="icon", on_click=toggle_password_visibility, 
