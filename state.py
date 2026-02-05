@@ -9,14 +9,12 @@ class State:
     email: str = ""             
     password: str = ""          
     
-    # --- UI & SÉCURITÉ MOT DE PASSE ---
-    # Ajout de ces deux variables pour tes nouvelles fonctionnalités
-    show_password_text: bool = False  # Bascule pour l'icône "œil"
-    password_confirm: str = ""        # Stockage du deuxième champ de vérification
-    
-    # --- NAVIGATION ---
+    # --- UI & NAVIGATION ---
+    show_password_text: bool = False
+    password_confirm: str = ""
     current_page: str = "login" 
     show_signup: bool = False
+    active_sub_menu: str = ""  # NOUVEAU : Pour gérer "Strava" vs "Paramètres" sans bug
 
     # --- MESSAGES DE FEEDBACK ---
     error_message: str = ""     
@@ -24,6 +22,7 @@ class State:
 
     # --- CONSENTEMENT & LÉGAL ---
     accept_cgu: bool = False    
+    has_opened_cgu: bool = False
 
     # --- LOGIQUE DE FLUX (PROFIL) ---
     is_completing_profile: bool = False 
@@ -32,8 +31,18 @@ class State:
     prenom: str = ""
     nom: str = ""               
     date_n: str = ""            
-    poids: str = ""             
+    poids: float = 0.0          # CORRIGÉ : str -> float pour la cohérence DB
     sexe: str = ""              
     niveau: str = "Débutant" 
     sport_pref: str = ""
     vma: float = 15.0
+    birth_day: str = ""
+    birth_month: str = ""
+    birth_year: str = ""
+
+    # --- INTÉGRATION STRAVA (NOUVEAU) ---
+    is_strava_linked: bool = False
+    strava_access_token: str = ""
+    strava_refresh_token: str = ""
+    strava_expires_at: int = 0
+    last_strava_sync: str = ""

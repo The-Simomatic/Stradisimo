@@ -35,7 +35,7 @@ MAIN_BOX_STYLE = me.Style(
     padding=me.Padding.symmetric(vertical=20, horizontal=10),
 )
 
-# Indispensable pour settings.py et les pages de contenu
+# Conteneur de contenu principal (utilisé dans main.py)
 CONTENT_CONTAINER = me.Style(
     display="flex",
     flex_direction="column",
@@ -43,6 +43,7 @@ CONTENT_CONTAINER = me.Style(
     width="100%",
     max_width=800,
     padding=me.Padding.all(20),
+    box_sizing="border-box",
 )
 
 # ==================================================
@@ -93,29 +94,35 @@ LOGO_SUBTITLE_STYLE = me.Style(
 # 5. TITRES ET TEXTES GÉNÉRAUX (UNIFORMISATION)
 # ==================================================
 
-# Pour settings.py et titres de pages
+# Titre de page principal (Dashboard, Paramètres, etc.)
 PAGE_TITLE_STYLE = me.Style(
     color=COLOR_ACCENT,
     font_family="Kanit, sans-serif",
-    font_size="2.2rem",
-    font_weight="700",
+    font_size="clamp(1.5rem, 5vw, 2.2rem)",
+    font_weight="900",
     text_transform="uppercase",
     letter_spacing="1px",
-    margin=me.Margin(bottom=10, top=10),
+    margin=me.Margin(bottom=15, top=10),
     text_align="center"
 )
 
-# Alias pour PAGE_TITLE (utilisé dans tes anciens fichiers)
+# Alias pour compatibilité
 PAGE_TITLE = PAGE_TITLE_STYLE
 
+# Sous-titre de section (ex: "MON COMPTE" dans les réglages)
 PAGE_SUBTITLE = me.Style(
     color=COLOR_PRIMARY,
     font_family="Inter, sans-serif",
     font_size="1.1rem",
     font_weight="600",
-    margin=me.Margin(top=20,bottom=20),
-    text_align="center"
+    text_align="left",
+    width="100%",
+    margin=me.Margin(top=30, bottom=15),
+    letter_spacing="0.5px"
 )
+
+# Optionnel : créer un alias pour éviter l'erreur si tu as déjà codé avec _STYLE
+PAGE_SUBTITLE_STYLE = PAGE_SUBTITLE
 
 TEXT_NORMAL = me.Style(
     color=COLOR_TEXT,
@@ -133,24 +140,31 @@ LOGIN_FORM_CONTAINER = me.Style(
     padding=me.Padding.all(30),
     border_radius=25,
     width="100%",
-    max_width=380,
+    max_width=420, # Légèrement augmenté pour donner de l'air aux champs côte à côte
     display="flex",
     flex_direction="column",
     align_items="stretch",
+    # --- LES AJUSTEMENTS CLÉS ---
+    height="auto",               # Laisse le cadre grandir avec le contenu
+    min_height="400px",          # Une base minimum pour garder un bel aspect
+    margin=me.Margin(bottom=40), # Évite que le bas du cadre ne touche le bord de l'écran
+    # ----------------------------
     border=me.Border.all(me.BorderSide(width=1, color="rgba(64,224,208,0.2)")),
     box_shadow="0 10px 30px rgba(0,0,0,0.3)",
+    box_sizing="border-box",
 )
 
 INPUT_STYLE = me.Style(
     background=COLOR_INPUT_BG,
     color=COLOR_SECONDARY,
     border_radius=12,
-    padding=me.Padding.symmetric(horizontal=12, vertical=0), 
+    padding=me.Padding.symmetric(horizontal=16, vertical=0), 
     margin=me.Margin(bottom=10),
     width="100%",
+    height=70, # Hauteur optimisée pour le tactile
     font_weight="500", 
-    line_height="1.2",
-    border=me.Border.all(me.BorderSide(width=1, color="rgba(64, 224, 208, 0.1)"))
+    border=me.Border.all(me.BorderSide(width=1, color="rgba(64, 224, 208, 0.1)")),
+    box_sizing="border-box",
 )
 
 LOGIN_TITLE_STYLE = me.Style(
@@ -174,6 +188,7 @@ LOGIN_BUTTON_STYLE = me.Style(
     border_radius=15,
     margin=me.Margin(top=15),
     cursor="pointer",
+    width="100%",
 )
 
 LOGIN_BUTTON_DISABLED_STYLE = me.Style(
@@ -181,7 +196,7 @@ LOGIN_BUTTON_DISABLED_STYLE = me.Style(
     color="#888888",
     width="100%",
     padding=me.Padding.all(15),
-    border_radius=10,
+    border_radius=15,
     font_weight="bold",
     text_transform="uppercase",
     cursor="not-allowed",
@@ -203,24 +218,24 @@ LINK_STYLE = me.Style(
 # ==================================================
 NAVBAR_CONTAINER_STYLE = me.Style(
     display="flex",
-    gap=8, # Réduit un peu pour mobile
+    gap=8,
     justify_content="center",
     margin=me.Margin(bottom=20),
-    flex_wrap="wrap", # Permet aux boutons de la nav de passer à la ligne sur petit écran
+    flex_wrap="wrap",
 )
 
 NAV_BUTTON_BASE_STYLE = me.Style(
     border_radius=999,
     padding=me.Padding.symmetric(vertical=8, horizontal=16),
     font_weight="700",
-    font_size="0.7rem", # Légèrement plus petit
+    font_size="0.75rem",
     text_transform="uppercase",
     cursor="pointer",
 )
 
 CARDS_CONTAINER_STYLE = me.Style(
     display="flex",
-    gap=12, # Gap harmonisé avec le calcul des cartes
+    gap=12,
     justify_content="center",
     flex_wrap="wrap",
     width="100%",
@@ -230,28 +245,28 @@ CARDS_CONTAINER_STYLE = me.Style(
 
 METRIC_CARD_STYLE = me.Style(
     background=COLOR_CARD_BG,
-    padding=me.Padding.all(16), # Réduit un peu pour gagner de la place
+    padding=me.Padding.all(16),
     border_radius=20,
-    # Ici le secret : 50% moins la moitié du gap pour que ça loge pile poil
     width="calc(50% - 6px)", 
-    min_width=140, # Plus sécurisant pour les petits écrans (iPhone SE etc.)
+    min_width=140,
     display="flex",
     flex_direction="column",
     gap=4,
     border=me.Border.all(me.BorderSide(width=1, color="rgba(64,224,208,0.1)")),
-    box_sizing="border-box", # INDISPENSABLE pour que le padding ne fasse pas déborder la carte
+    box_sizing="border-box",
+    box_shadow="0 4px 10px rgba(0,0,0,0.1)",
 )
 
 CARD_LABEL_STYLE = me.Style(
     color=COLOR_PRIMARY,
     font_size="0.75rem",
     font_weight="700",
-    overflow_wrap="anywhere", # Empêche les mots longs de casser la carte
+    overflow_wrap="anywhere",
 )
 
 CARD_VALUE_STYLE = me.Style(
     color=COLOR_TEXT,
-    font_size="1.2rem", # Réduit de 1.4 à 1.2 pour éviter que "16.5 km/h" ne sorte
+    font_size="1.2rem",
     font_weight="800",
     overflow_wrap="anywhere",
 )
@@ -273,14 +288,12 @@ SUCCESS_TEXT_STYLE = me.Style(
     margin=me.Margin(top=15),
     text_align="center",
     font_weight="600",
-    font_family="Inter, sans-serif",
 )
 
 # ==================================================
 # 10. COMPOSANTS RÉGLAGES (SETTINGS)
 # ==================================================
 
-# Style pour le conteneur du bouton retour
 BACK_BUTTON_CONTAINER = me.Style(
     display="flex", 
     align_items="center", 
@@ -289,37 +302,37 @@ BACK_BUTTON_CONTAINER = me.Style(
     margin=me.Margin(bottom=20)
 )
 
-# Style pour le texte/icône du bouton retour
 BACK_BUTTON_TEXT = me.Style(
     color=COLOR_PRIMARY, 
     font_weight="600", 
     margin=me.Margin(left=8)
 )
 
-# Style de la tuile de menu (format carte)
 SETTINGS_CARD_STYLE = me.Style(
     display="flex",
     align_items="center",
-    padding=me.Padding.all(20),
+    padding=me.Padding.all(18),
     background=COLOR_CARD_BG,
     border_radius=20,
     cursor="pointer",
     margin=me.Margin(bottom=12),
     width="100%",
-    border=me.Border.all(me.BorderSide(width=1, color="rgba(64,224,208,0.1)")),
-    box_shadow="0 4px 12px rgba(0,0,0,0.2)"
+    max_width=500,
+    border=me.Border.all(me.BorderSide(width=1, color="rgba(255,255,255,0.05)")),
+    box_shadow="0 4px 12px rgba(0,0,0,0.2)",
+    box_sizing="border-box",
 )
 
-# Style pour le titre à l'intérieur d'une tuile
 SETTINGS_CARD_TITLE = me.Style(
     color=COLOR_PRIMARY, 
     font_weight="800", 
-    font_size="1.1rem"
+    font_size="1.1rem",
+    font_family="Inter, sans-serif",
 )
 
-# Style pour le sous-titre à l'intérieur d'une tuile
 SETTINGS_CARD_SUBTITLE = me.Style(
     color=COLOR_TEXT, 
     font_size="0.8rem", 
-    font_weight="600"
+    font_weight="400",
+    opacity=0.6,
 )

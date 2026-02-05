@@ -3,7 +3,9 @@ import styles as st
 from state import State
 from datetime import datetime
 
-# --- ACTIONS ---
+# ==================================================
+# 1. ACTIONS & LOGIQUE
+# ==================================================
 
 def on_vma_slider_change(e: me.SliderValueChangeEvent):
     s = me.state(State)
@@ -11,22 +13,24 @@ def on_vma_slider_change(e: me.SliderValueChangeEvent):
 
 def on_vma_increment(e: me.ClickEvent):
     s = me.state(State)
-    if s.vma < 22:
-        s.vma = round(s.vma + 0.5, 1)
+    if s.vma < 24: # Augmenté à 24 pour les athlètes de haut niveau
+        s.vma = round(s.vma + 0.1, 1) # Incrément plus précis
 
 def on_vma_decrement(e: me.ClickEvent):
     s = me.state(State)
     if s.vma > 8:
-        s.vma = round(s.vma - 0.5, 1)
+        s.vma = round(s.vma - 0.1, 1)
 
 def on_generate_workout(e: me.ClickEvent):
-    # Logique future pour l'IA ou les séances
+    # Logique future pour l'IA
     pass
 
-# --- FONCTIONS UTILITAIRES ET COMPOSANTS ---
+# ==================================================
+# 2. UTILITAIRES DE CALCUL
+# ==================================================
 
 def calculate_pace(vma: float, percent: float) -> str:
-    """Calcule l'allure en mm:ss au km"""
+    """Calcule l'allure en mm:ss au km."""
     if vma <= 0: return "00:00"
     speed = vma * percent
     pace_float = 60 / speed
@@ -34,155 +38,109 @@ def calculate_pace(vma: float, percent: float) -> str:
     seconds = int((pace_float - minutes) * 60)
     return f"{minutes}:{seconds:02d}"
 
-def render_vma_button(icon: str, on_click):
-    """Bouton icône personnalisé car me.icon_button n'existe pas."""
-    with me.content_button(type="icon", on_click=on_click):
-        me.icon(icon=icon, style=me.Style(color=st.COLOR_PRIMARY))
-
-def render_pace_card(label: str, pace: str):
-    """Card agrandie pour les allures"""
-    with me.box(style=me.Style(
-        background="rgba(40, 165, 168, 0.1)",
-        padding=me.Padding.symmetric(vertical=15, horizontal=5), # Plus de hauteur
-        border_radius=15,
-        width="31%", # Un peu plus large
-        min_width="110px",
-        text_align="center",
-        border=me.Border.all(me.BorderSide(width=1, color="rgba(40, 165, 168, 0.2)"))
-    )):
-        me.text(label, style=me.Style(font_size="0.65rem", color=st.COLOR_PRIMARY, font_weight="700"))
-        me.text(pace, style=me.Style(font_size="1.3rem", color=st.COLOR_TEXT, font_weight="900", margin=me.Margin(top=5)))
-
-def render_dashboard_subtitle(title: str):
-    me.text(title, style=me.Style(
-        color=st.COLOR_PRIMARY,
-        font_family="Inter, sans-serif",
-        font_size="1.1rem",
-        font_weight="600",
-        text_align="left",
-        width="100%",
-        margin=me.Margin(top=30, bottom=15)
-    ))
-
-def render_metric_card(label: str, value: str, icon_name: str):
-    # --- LOGIQUE DYNAMIQUE DE TAILLE ---
-    # On définit une taille de base (1.3rem ou 1.4rem selon tes préférences)
-    size = "1.3rem" 
-    val_str = str(value).upper()
-    
-    # Ajustement selon la longueur du texte
-    if len(val_str) > 10:
-        size = "0.95rem"  # Très réduit pour les mots comme "INTERMÉDIAIRE"
-    elif len(val_str) > 8:
-        size = "1.1rem"   # Réduction modérée
-
-    with me.box(style=st.METRIC_CARD_STYLE):
-        # En-tête : Libellé + Icône
-        with me.box(style=me.Style(display="flex", justify_content="space-between", align_items="center")):
-            me.text(label, style=st.CARD_LABEL_STYLE)
-            me.icon(icon_name, style=me.Style(color=st.COLOR_PRIMARY, font_size=18))
-        
-        # Valeur avec style injecté dynamiquement
-        me.text(
-            val_str, 
-            style=me.Style(
-                color=st.COLOR_TEXT,
-                font_size=size, # <-- C'est ici que la magie opère
-                font_weight="800",
-                white_space="nowrap",
-                overflow="hidden",
-                text_overflow="ellipsis" # Sécurité : ajoute "..." si vraiment ça ne loge pas
-            )
-        )
-
 def calculate_age(birth_date_str: str) -> str:
-    """Calcule l'âge à partir d'une chaîne YYYY-MM-DD"""
-    if not birth_date_str or birth_date_str == "--/--/----":
+    """Calcule l'âge dynamiquement."""
+    if not birth_date_str or len(birth_date_str) < 10:
         return "N/A"
     try:
-        # On adapte selon le format stocké (souvent YYYY-MM-DD avec Supabase)
         birth_date = datetime.strptime(birth_date_str, "%Y-%m-%d")
         today = datetime.today()
         age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
         return f"{age} ANS"
-    except Exception:
+    except:
         return "N/A"
-    
 
-# --- ÉCRAN PRINCIPAL ---
+# ==================================================
+# 3. COMPOSANTS UI RÉUTILISABLES
+# ==================================================
+
+def render_metric_card(label: str, value: str, icon_name: str):
+    """Card pour les données personnelles avec texte auto-adaptatif."""
+    val_str = str(value).upper()
+    size = "1.3rem"
+    if len(val_str) > 10: size = "0.9rem"
+    elif len(val_str) > 8: size = "1.1rem"
+
+    with me.box(style=st.METRIC_CARD_STYLE):
+        with me.box(style=me.Style(display="flex", justify_content="space-between")):
+            me.text(label, style=st.CARD_LABEL_STYLE)
+            me.icon(icon_name, style=me.Style(color=st.COLOR_PRIMARY, font_size=18))
+        
+        me.text(val_str, style=me.Style(
+            color=st.COLOR_TEXT, font_size=size, font_weight="800",
+            white_space="nowrap", overflow="hidden", text_overflow="ellipsis"
+        ))
+
+def render_pace_card(label: str, pace: str):
+    """Affiche une zone d'intensité."""
+    with me.box(style=me.Style(
+        background="rgba(40, 165, 168, 0.08)",
+        padding=me.Padding.symmetric(vertical=15, horizontal=5),
+        border_radius=12,
+        width="31%", min_width="100px", text_align="center",
+        border=me.Border.all(me.BorderSide(width=1, color="rgba(40, 165, 168, 0.2)"))
+    )):
+        me.text(label, style=me.Style(font_size="0.6rem", color=st.COLOR_PRIMARY, font_weight="700", letter_spacing="0.5px"))
+        me.text(pace, style=me.Style(font_size="1.4rem", color=st.COLOR_TEXT, font_weight="900"))
+
+# ==================================================
+# 4. ÉCRAN PRINCIPAL
+# ==================================================
 
 def dashboard_screen(s: State):
     with me.box(style=st.CONTENT_CONTAINER):
         
-        # --- TITRE BIENVENUE ---
-        me.text(f"BIENVENUE, {s.prenom.upper() if s.prenom else 'ATHLÈTE'}", 
-                style=st.PAGE_TITLE_STYLE)
+        # Header Bienvenue
+        me.text(f"HELLO, {s.prenom.upper() if s.prenom else 'ATHLÈTE'} 👋", style=st.PAGE_TITLE_STYLE)
 
-        # --- SECTION : DONNÉES PERSONNELLES ---
-        render_dashboard_subtitle("DONNÉES PERSONNELLES")
+        # --- SECTION : PROFIL ---
+        me.text("MON PROFIL PHYSIOLOGIQUE", style=st.PAGE_SUBTITLE_STYLE)
         with me.box(style=st.CARDS_CONTAINER_STYLE):
-            # Sport préféré
-            render_metric_card("SPORT PRÉFÉRÉ", s.sport_pref or "NON DÉFINI", "fitness_center")
-            
-            # Niveau
-            render_metric_card("NIVEAU", s.niveau or "DÉBUTANT", "speed")
-            
-            # ÂGE (Calculé dynamiquement au lieu de la date de naissance)
-            age_display = calculate_age(s.date_n)
-            render_metric_card("ÂGE", age_display, "cake")
-            
-            # Poids
+            render_metric_card("SPORT", s.sport_pref or "NON DÉFINI", "fitness_center")
+            render_metric_card("NIVEAU", s.niveau or "DÉBUTANT", "trending_up")
+            render_metric_card("ÂGE", calculate_age(s.date_n), "cake")
             render_metric_card("POIDS", f"{s.poids} KG" if s.poids else "N/A", "monitor_weight")
 
-        # --- SECTION : DERNIÈRES ACTIVITÉS STRAVA ---
-        render_dashboard_subtitle("TES DERNIÈRES ACTIVITÉS")
+        # --- SECTION : ALLURES ---
+        me.text("MES ZONES D'INTENSITÉ", style=st.PAGE_SUBTITLE_STYLE)
         with me.box(style=st.SETTINGS_CARD_STYLE):
-            with me.box(style=me.Style(display="flex", flex_direction="column", width="100%", align_items="center", padding=me.Padding.all(15))):
-                me.text("CONNECTEZ STRAVA POUR VISUALISER VOS ACTIVITÉS", 
-                        style=st.SETTINGS_CARD_SUBTITLE)
-                me.text("Lien Strava en attente", style=st.LINK_STYLE)
-
-        # --- SECTION : RAPPEL DES ALLURES ---
-        render_dashboard_subtitle("RAPPEL DES ALLURES")
-        with me.box(style=st.SETTINGS_CARD_STYLE):
-            with me.box(style=me.Style(width="100%", display="flex", flex_direction="column", align_items="center", padding=me.Padding.all(10))):
+            with me.box(style=me.Style(width="100%", display="flex", flex_direction="column", align_items="center", padding=me.Padding.all(15))):
                 
-                vma_val = s.vma if s.vma and s.vma > 0 else 15.0
+                vma_val = s.vma if s.vma > 0 else 15.0
                 
-                # 1. SÉLECTION AFFINÉE (Plus petite)
-                with me.box(style=me.Style(display="flex", align_items="center", gap=15, margin=me.Margin(bottom=2))):
-                    render_vma_button("remove_circle_outline", on_vma_decrement)
+                # Contrôle VMA
+                with me.box(style=me.Style(display="flex", align_items="center", gap=20)):
+                    with me.content_button(type="icon", on_click=on_vma_decrement):
+                        me.icon("remove_circle_outline", style=me.Style(color=st.COLOR_PRIMARY))
                     
-                    # Taille réduite à 24px
-                    me.text(f"{vma_val:.1f} km/h", style=me.Style(font_size=24, font_weight="bold", color=st.COLOR_PRIMARY))
+                    me.text(f"{vma_val:.1f}", style=me.Style(font_size=32, font_weight="900", color=st.COLOR_PRIMARY))
                     
-                    render_vma_button("add_circle_outline", on_vma_increment)
+                    with me.content_button(type="icon", on_click=on_vma_increment):
+                        me.icon("add_circle_outline", style=me.Style(color=st.COLOR_PRIMARY))
 
-                me.text("RÉGLAGE VMA", style=me.Style(font_size=10, color="#aaa", margin=me.Margin(bottom=10)))
+                me.text("VMA (KM/H)", style=me.Style(font_size=10, opacity=0.5, letter_spacing="1px"))
                 
-                # SLIDER PLUS DISCRET
-                with me.box(style=me.Style(width="80%", max_width=350)): # Réduit à 80% de large
-                    me.slider(
-                        min=8, max=22, step=0.5, value=vma_val,
-                        on_value_change=on_vma_slider_change,
-                        style=me.Style(width="100%") 
-                    )
+                # Slider
+                with me.box(style=me.Style(width="90%", max_width=400, margin=me.Margin(top=10))):
+                    me.slider(min=8, max=24, step=0.1, value=vma_val, on_value_change=on_vma_slider_change)
 
-                me.box(style=me.Style(height=25)) # Espace avant les résultats
+                me.box(style=me.Style(height=20))
 
-                # 2. CARDS ALLURES (Plus grandes)
-                with me.box(style=me.Style(
-                    display="flex", 
-                    flex_wrap="wrap", 
-                    gap=8, 
-                    width="100%", 
-                    justify_content="center"
-                )):
-                    render_pace_card("ENDURANCE (65%)", calculate_pace(vma_val, 0.65))
+                # Cards Allures
+                with me.box(style=me.Style(display="flex", flex_wrap="wrap", gap=8, width="100%", justify_content="center")):
+                    render_pace_card("E.F (65%)", calculate_pace(vma_val, 0.65))
                     render_pace_card("SEUIL (85%)", calculate_pace(vma_val, 0.85))
                     render_pace_card("VMA (100%)", calculate_pace(vma_val, 1.0))
 
-        # --- SECTION : RENFORCEMENT ---
-        render_dashboard_subtitle("RENFORCEMENT")
-        with me.box(style=me.Style(width="100%", display="flex", justify_content="center", margin=me.Margin(top=10))):
-            me.button("GÉNÉRER UNE SÉANCE", on_click=on_generate_workout, type="flat", style=st.LOGIN_BUTTON_STYLE)
+        # --- SECTION : STRAVA ---
+        me.text("ACTIVITÉS RÉCENTES", style=st.PAGE_SUBTITLE_STYLE)
+        with me.box(style=st.SETTINGS_CARD_STYLE):
+            with me.box(style=me.Style(display="flex", flex_direction="column", align_items="center", padding=me.Padding.all(20), width="100%")):
+                me.icon("directions_run", style=me.Style(font_size=30, color=st.COLOR_PRIMARY, opacity=0.3))
+                me.text("SYNCHRONISE TES ENTRAÎNEMENTS", style=me.Style(font_size="0.8rem", margin=me.Margin(top=10), font_weight="bold"))
+                with me.box(style=me.Style(margin=me.Margin(top=10), cursor="pointer"), on_click=lambda e: setattr(s, "current_page", "settings")):
+                    me.text("CONNECTER MON COMPTE STRAVA", style=st.LINK_STYLE)
+
+        # --- SECTION : ACTION ---
+        with me.box(style=me.Style(width="100%", margin=me.Margin(top=20, bottom=40), display="flex", justify_content="center")):
+             me.button("GÉNÉRER UNE SÉANCE IA", on_click=on_generate_workout, type="flat", style=st.LOGIN_BUTTON_STYLE)

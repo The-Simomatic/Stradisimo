@@ -3,7 +3,6 @@ from datetime import datetime
 import config as cfg
 
 # --- INITIALISATION ---
-# Ce client reste global pour les opérations de base ou publiques
 supabase: Client = create_client(cfg.SUPABASE_URL, cfg.SUPABASE_KEY)
 
 # --- AUTHENTIFICATION ---
@@ -11,7 +10,6 @@ supabase: Client = create_client(cfg.SUPABASE_URL, cfg.SUPABASE_KEY)
 def login_user(email, password):
     """Tente de connecter l'utilisateur via Supabase Auth."""
     try:
-        # On utilise le client global uniquement pour l'action de login
         response = supabase.auth.sign_in_with_password({
             "email": email,
             "password": password
@@ -40,7 +38,7 @@ def signup_user(email, password):
 # --- RÉCUPÉRATION DE COMPTE ---
 
 def reset_password(email):
-    """Envoie un e-mail de réinitialisation de mot de passe."""
+    """Envoie un e-mail de réinitialisation."""
     try:
         supabase.auth.reset_password_for_email(email)
         return True, "Un lien de récupération a été envoyé sur votre boîte mail."
@@ -51,18 +49,16 @@ def verify_recovery_token(token):
     """Échange le token reçu par mail contre une session active."""
     try:
         response = supabase.auth.verify_otp({"token": token, "type": "recovery"})
-        # IMPORTANT : On définit la session sur le client global pour que 
-        # l'appel suivant 'update_user' soit autorisé.
-        supabase.postgrest.auth(response.session.access_token) 
+        # Définit la session pour les appels authentifiés suivants
+        supabase.auth.set_session(response.session.access_token, response.session.refresh_token)
         return True, response
     except Exception as e:
+        print(f"DEBUG RECOVERY ERROR: {e}")
         return False, str(e)
 
 def update_user_password(new_password):
     """Met à jour le mot de passe de l'utilisateur."""
     try:
-        # ATTENTION : Cette action nécessite que le client global 
-        # ait la session active du demandeur.
         supabase.auth.update_user({"password": new_password})
         return True, "Votre mot de passe a été mis à jour avec succès."
     except Exception as e:
@@ -71,14 +67,9 @@ def update_user_password(new_password):
 # --- GESTION DU PROFIL (DATABASE) ---
 
 def get_user_profile(user_id):
-    """
-    Récupère les données du profil de manière isolée via l'ID.
-    """
+    """Récupère les infos du profil utilisateur."""
     try:
-        # On utilise explicitement le user_id passé par le State de Mesop
-        # pour filtrer la table, sans faire confiance à la session du client global.
         response = supabase.table("profiles").select("*").eq("id", user_id).execute()
-        
         if response.data and len(response.data) > 0:
             return response.data[0], None
         return None, "Aucun profil trouvé."
@@ -86,17 +77,35 @@ def get_user_profile(user_id):
         return None, str(e)
 
 def update_profile(user_id, data):
-    """
-    Crée ou met à jour le profil dans la table 'profiles'.
-    """
+    """Met à jour ou crée le profil utilisateur (Upsert)."""
     try:
         payload = {
             "id": user_id,
             "updated_at": datetime.now().isoformat(),
             **data
         }
-        # Upsert basé sur l'ID fourni par le State utilisateur
         supabase.table("profiles").upsert(payload).execute()
-        return True, "Profil mis à jour avec succès."
+        return True, "Profil mis à jour."
     except Exception as e:
         return False, f"Erreur base de données : {str(e)}"
+
+# --- GESTION DES ACTIVITÉS STRAVA ---
+
+def upsert_activities(activities_list):
+    """
+    Insère une liste d'activités ou les met à jour si elles existent déjà.
+    Utilise 'strava_id' comme clé de conflit pour éviter les doublons.
+    """
+    if not activities_list:
+        return None
+    
+    try:
+        # L'upsert sur une liste est très efficace chez Supabase (une seule requête)
+        response = supabase.table("activities").upsert(
+            activities_list, 
+            on_conflict="strava_id"
+        ).execute()
+        return response
+    except Exception as e:
+        print(f"❌ Erreur Upsert Activités : {e}")
+        return None

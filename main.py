@@ -2,7 +2,7 @@ import mesop as me
 import styles as st
 import components as cp
 from state import State
-from auth import render_login, render_signup, render_password_reset
+from auth import render_login, render_signup
 from dashboard import dashboard_screen
 from planning import planning_screen
 from cv_sportif import cv_screen
@@ -10,26 +10,70 @@ from settings import settings_screen
 from cgu import cgu_screen  
 from profile import render_profile_setup 
 from password_reset import password_reset_screen
+import strava_utils as su # Ton nouveau fichier
 
-# --- LOGIQUE BASE DE DONNÉES  ---
+# --- LOGIQUE BASE DE DONNÉES ---
 import supabase_db as db
+
+# --- CONFIGURATION DU ROUTAGE ---
+# Centralisation des pages pour éviter les elif à répétition
+PAGES_INTERNES = {
+    "dashboard": dashboard_screen,
+    "planning": planning_screen,
+    "cv": cv_screen,
+    "settings": settings_screen,
+    "profile_edit": render_profile_setup,
+}
 
 # --- UTILITAIRES ---
 
 def update_state_from_profile(s: State, profile: dict):
     """Met à jour les variables d'état à partir des données Supabase."""
     if profile:
+        # 1. DONNÉES DE PROFIL
         s.prenom = profile.get("prenom") or ""
         s.nom = profile.get("nom") or ""
-        s.poids = str(profile.get("poids", ""))
-        s.niveau = profile.get("niveau") or "Débutant"
-        s.date_n = profile.get("date_n") or ""
-        s.sexe = profile.get("sexe") or ""
+        s.date_n = profile.get("date_n") or ""  # <-- RÉAJOUTÉ ICI
+        s.poids = profile.get("poids") or 0.0
+        s.vma = profile.get("vma") or 0.0
+        s.sexe = profile.get("sexe") or ""       # Vérifie si c'est 'sexe' ou 'sexetext' en base
         s.sport_pref = profile.get("sport_pref") or ""
+        s.niveau = profile.get("niveau") or "Débutant"
+
+        # 2. DONNÉES STRAVA (Persistance)
+        s.strava_refresh_token = profile.get("strava_refresh_token") or ""
+        s.strava_access_token = profile.get("strava_access_token") or ""
+        
+        # Sécurité pour l'expiration (doit être int)
+        expires_at = profile.get("strava_expires_at")
         try:
-            s.vma = float(profile.get("vma") or 0.0)
-        except (ValueError, TypeError):
-            s.vma = 0.0
+            s.strava_expires_at = int(expires_at) if expires_at else 0
+        except:
+            s.strava_expires_at = 0
+        
+        # Date de synchro
+        last_sync = profile.get("last_strava_sync")
+        s.last_strava_sync = str(last_sync) if last_sync else ""
+        
+        # État de la connexion
+        s.is_strava_linked = bool(s.strava_refresh_token)
+
+def handle_recovery_logic(s: State):
+    """Gère la détection du token de récupération de mot de passe."""
+    params = me.query_params
+    token = params.get("token")
+    is_recovery_mode = params.get("type") == "recovery"
+
+    if is_recovery_mode and token and s.current_page != "password_edit":
+        success, res = db.verify_recovery_token(token)
+        if success:
+            s.is_logged_in = True
+            s.user_id = res.user.id
+            s.email = res.user.email
+            s.current_page = "password_edit"
+        else:
+            s.error_message = "Lien de récupération invalide ou expiré."
+            s.current_page = "login"
 
 # --- GESTIONNAIRES D'ÉVÉNEMENTS ---
 
@@ -53,18 +97,17 @@ def handle_login(e: me.ClickEvent):
 
     user = result["user"]
     if user:
-        # On stocke les infos uniquement dans le State isolé par Mesop
         s.user_id = user.id
         s.email = user.email
         s.password = "" 
         
-        # Récupération du profil via l'ID sécurisé
         profile, _ = db.get_user_profile(user.id)
         if profile:
             update_state_from_profile(s, profile)
         
         s.is_logged_in = True
         
+        # Redirection intelligente
         if not s.prenom or not s.nom:
             s.is_completing_profile = True
             s.current_page = "profile_edit"
@@ -75,11 +118,10 @@ def handle_login(e: me.ClickEvent):
     s.is_loading = False 
 
 def handle_logout(e: me.ClickEvent):
-    """Nettoyage complet du State pour éviter toute fuite de données."""
+    """Nettoyage complet du State."""
     s = me.state(State)
     db.supabase.auth.sign_out()
     
-    # Reset de toutes les variables sensibles
     s.is_logged_in = False
     s.user_id = ""
     s.email = ""
@@ -99,22 +141,17 @@ def handle_logout(e: me.ClickEvent):
 def main():
     s = me.state(State)
     
-    # --- GESTION RECOVERY (Mot de passe oublié) ---
-    params = me.query_params
-    token = params.get("token")
-    # On harmonise le nom ici
-    is_recovery_mode = params.get("type") == "recovery"
-
-    if is_recovery_mode and token and s.current_page != "password_edit":
-        success, res = db.verify_recovery_token(token)
-        if success:
-            s.is_logged_in = True
-            s.user_id = res.user.id
-            s.email = res.user.email
-            s.current_page = "password_edit"
-        else:
-            s.error_message = "Lien de récupération invalide ou expiré."
-            s.current_page = "login"
+    # Exécution de la logique de récupération de compte
+    handle_recovery_logic(s)
+    # --- RAFFRAÎCHISSEMENT SILENCIEUX STRAVA ---
+    # Si l'utilisateur est connecté et que Strava est lié,
+    # on vérifie si le jeton a besoin d'un coup de neuf.
+    if s.is_logged_in and getattr(s, "is_strava_linked", False) and s.user_id:
+        # On rafraîchit le token si nécessaire (silencieux)
+        if su.refresh_strava_token_if_needed(s.user_id, s):
+            # On lance la synchro des dernières activités vers la DB
+            # Grâce à ton 'upsert', cela ne créera pas de doublons.
+            su.sync_latest_activities(s.user_id, s)
 
     with me.box(style=st.MAIN_BOX_STYLE):
         cp.render_header(s, on_logout=handle_logout)
@@ -123,40 +160,37 @@ def main():
         with me.box(style=me.Style(height=1, width="100%", background="rgba(40, 165, 168, 0.3)", margin=me.Margin(bottom=30))):
             pass
 
-        # --- NAVIGATION ---
+        # --- LOGIQUE DE NAVIGATION ---
+        
+        # 1. Pages Publiques ou Spéciales
         if s.current_page == "cgu":
             cgu_screen(s)
-        # Priorité à l'écran de reset si le state le demande
         elif s.current_page == "password_edit":
             password_reset_screen(s)
-        # Si on n'est pas connecté, login ou signup
+            
+        # 2. État Non Connecté
         elif not s.is_logged_in:
             if s.show_signup:
                 render_signup(s)
             else:
                 render_login(s, on_login=handle_login)
-        # Si connecté mais profil incomplet
+        
+        # 3. État Connecté mais Profil incomplet
         elif s.is_logged_in and (s.is_completing_profile or not s.prenom or not s.nom):
             render_profile_setup(s)
-        # Sinon, accès aux pages internes
+            
+        # 4. État Connecté - Accès aux pages internes
         else:
             cp.render_navbar(s)
             
-            valid_pages = ["dashboard", "planning", "cv", "settings", "profile_edit"]
-            if s.current_page not in valid_pages:
+            # Sécurité de routage
+            if s.current_page not in PAGES_INTERNES:
                 s.current_page = "dashboard"
 
-            with me.box(style=me.Style(width="100%", max_width=800, margin=me.Margin.symmetric(vertical=10), display="flex", flex_direction="column", align_items="center")):
+            # Conteneur de contenu principal
+            with me.box(style=st.CONTENT_CONTAINER):
                 if s.is_loading:
                     me.progress_spinner(style=me.Style(margin=me.Margin(bottom=20)))
 
-                if s.current_page == "dashboard":
-                    dashboard_screen(s)
-                elif s.current_page == "planning":
-                    planning_screen(s)
-                elif s.current_page == "cv":
-                    cv_screen(s)
-                elif s.current_page == "settings":
-                    settings_screen(s)
-                elif s.current_page == "profile_edit":
-                    render_profile_setup(s)
+                # Appel dynamique de la page via le dictionnaire
+                PAGES_INTERNES[s.current_page](s)
