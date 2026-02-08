@@ -26,22 +26,33 @@ def get_strava_auth_url():
 def on_start_full_import_click(e: me.ClickEvent):
     """Lance l'importation de tout l'historique."""
     s = me.state(State)
+    
+    # 1. On active le chargement pour faire apparaître le spinner
     s.is_loading = True
+    yield # Force Mesop à mettre à jour l'interface immédiatement
     
-    # Appel de la fonction d'importation massive
-    count = su.import_complete_history(s.user_id, s)
-    
-    # Rechargement immédiat des données pour l'affichage
-    activities = db.get_latest_activities(s.user_id)
-    s.recent_activities_json = json.dumps(activities)
-    
-    s.is_loading = False
-    if count > 0:
-        s.success_message = f"Succès ! {count} activités importées."
-    else:
-        s.success_message = "Import terminé (aucune nouvelle activité trouvée)."
+    try:
+        # 2. Appel de la fonction d'importation (longue durée)
+        # On suppose que su.import_complete_history renvoie le nombre d'activités
+        count = su.import_complete_history(s.user_id, s)
         
+        # 3. Rechargement des données
+        activities = db.get_latest_activities(s.user_id)
+        s.recent_activities_json = json.dumps(activities)
+        
+        # 4. Message de succès
+        if count > 0:
+            s.success_message = f"✅ Importation réussie ! {count} activités ajoutées à votre historique."
+        else:
+            s.success_message = "Votre historique est déjà à jour."
+            
+    except Exception as ex:
+        s.error_message = f"Erreur lors de l'import : {str(ex)}"
+    
+    # 5. On coupe le chargement et on change de vue
+    s.is_loading = False
     s.active_sub_menu = "strava_main"
+    yield # On renvoie l'état final
 
 def on_disconnect_strava(e: me.ClickEvent):
     """Supprime les accès Strava en base et réinitialise l'état."""
@@ -117,9 +128,10 @@ def settings_screen(s: State):
                     me.text("Souhaitez-vous récupérer toutes vos activités passées ?", style=st.SETTINGS_CARD_SUBTITLE)
                     
                     if s.is_loading:
-                        with me.box(style=me.Style(padding=me.Padding.all(20), display="flex", flex_direction="column", align_items="center")):
+                        with me.box(style=me.Style(padding=me.Padding.all(40), display="flex", flex_direction="column", align_items="center")):
                             me.progress_spinner()
-                            me.text("Importation en cours...", style=me.Style(margin=me.Margin(top=10)))
+                            me.text("Récupération de vos activités chez Strava...", style=me.Style(margin=me.Margin(top=20), font_weight="500"))
+                            me.text("Cela peut prendre quelques minutes selon votre historique.", style=me.Style(font_size=12, opacity=0.7))
                     else:
                         render_menu_item(
                             icon="download", 
