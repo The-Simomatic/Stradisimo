@@ -28,8 +28,9 @@ def get_strava_auth_url():
     return f"https://www.strava.com/oauth/authorize?{urllib.parse.urlencode(params)}"
 
 def on_strava_connect_click(e: me.ClickEvent):
-    import webbrowser
-    webbrowser.open(get_strava_auth_url())
+    url = get_strava_auth_url()
+    # Si tu es sur une version récente de Mesop, utilise :
+    me.navigate(url)
 
 def on_start_full_import_click(e: me.ClickEvent):
     """Lance l'importation de tout l'historique."""
