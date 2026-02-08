@@ -52,7 +52,7 @@ def update_state_from_profile(s: State, profile: dict):
         s.last_strava_sync = str(last_sync) if last_sync else ""
         s.is_strava_linked = bool(s.strava_refresh_token)
 
-        # --- AJOUT ICI : Charger les activités lors du chargement du profil ---
+        # --- AJOUT : Charger les activités lors du chargement du profil ---
         activities = db.get_latest_activities(s.user_id)
         s.recent_activities_json = json.dumps(activities)
 
@@ -123,6 +123,48 @@ def handle_logout(e: me.ClickEvent):
     s.error_message = ""
     s.show_signup = False
 
+def handle_strava_callback(s: State):
+    """Capture le code OAuth au retour de Strava et initialise la connexion."""
+    query_params = me.query_params
+    code = query_params.get("code")
+    
+    # Si on a un code et que l'utilisateur est loggué mais pas encore lié dans le State
+    if code and s.is_logged_in:
+        s.is_loading = True
+        
+        # 1. Échange du code (Appel à strava_utils)
+        token_data = su.exchange_code_for_token(code)
+        
+        if token_data:
+            # 2. Sauvegarde en Base
+            data_to_save = {
+                "strava_access_token": token_data['access_token'],
+                "strava_refresh_token": token_data['refresh_token'],
+                "strava_expires_at": token_data['expires_at'],
+                "strava_athlete_id": str(token_data['athlete']['id'])
+            }
+            db.update_profile(s.user_id, data_to_save)
+            
+            # 3. Mise à jour du State
+            s.strava_access_token = token_data['access_token']
+            s.strava_refresh_token = token_data['refresh_token']
+            s.is_strava_linked = True
+            
+            # 4. Première Synchro Immédiate
+            su.sync_latest_activities(s.user_id, s)
+            
+            # 5. Refresh des données pour l'affichage
+            activities = db.get_latest_activities(s.user_id)
+            s.recent_activities_json = json.dumps(activities)
+            
+            s.success_message = "Compte Strava connecté avec succès !"
+            # Nettoyage de l'URL (redirection vers dashboard pour enlever ?code=...)
+            me.navigate("/")
+        else:
+            s.error_message = "Échec de la connexion Strava."
+        
+        s.is_loading = False
+
 # --- CONFIGURATION DE LA PAGE PRINCIPALE ---
 
 @me.page(
@@ -132,17 +174,28 @@ def handle_logout(e: me.ClickEvent):
 )
 def main():
     s = me.state(State)
+    
+    # 1. Gestion des callbacks (URL)
     handle_recovery_logic(s)
+    handle_strava_callback(s) # <-- AJOUTÉ ICI : IMPORTANT POUR LA CONNEXION
 
-    # --- RAFFRAÎCHISSEMENT SILENCIEUX STRAVA ---
+    # 2. Synchronisation Silencieuse (Strava)
+    # On vérifie si l'utilisateur est connecté et lié à Strava
     if s.is_logged_in and getattr(s, "is_strava_linked", False) and s.user_id:
-        if su.refresh_strava_token_if_needed(s.user_id, s):
-            # 1. On synchronise avec Strava vers Supabase
-            su.sync_latest_activities(s.user_id, s)
-            # 2. AJOUT ICI : On recharge les données de la DB vers le State après synchro
-            activities = db.get_latest_activities(s.user_id)
+        
+        # Étape A : On rafraîchit le token SI BESOIN (mais on ne bloque pas si pas besoin)
+        su.refresh_strava_token_if_needed(s.user_id, s)
+            
+        # Étape B : On lance la synchronisation (strava_utils gère la fréquence)
+        # On utilise sync_latest_activities ici. Idéalement sync_if_needed si dispo.
+        su.sync_latest_activities(s.user_id, s)
+        
+        # Étape C : On recharge TOUJOURS les données de la DB vers le State pour être à jour
+        activities = db.get_latest_activities(s.user_id)
+        if activities:
             s.recent_activities_json = json.dumps(activities)
 
+    # 3. Rendu de l'interface
     with me.box(style=st.MAIN_BOX_STYLE):
         cp.render_header(s, on_logout=handle_logout)
         with me.box(style=me.Style(height=1, width="100%", background="rgba(40, 165, 168, 0.3)", margin=me.Margin(bottom=30))):
@@ -167,4 +220,6 @@ def main():
             with me.box(style=st.CONTENT_CONTAINER):
                 if s.is_loading:
                     me.progress_spinner(style=me.Style(margin=me.Margin(bottom=20)))
+                
+                # Affichage de la page demandée
                 PAGES_INTERNES[s.current_page](s)

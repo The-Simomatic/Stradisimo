@@ -1,143 +1,174 @@
 import requests
 import time
 from datetime import datetime, timezone, timedelta
-import supabase_db as db  # Ton module de base de données
-from config import STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET  # Import de tes secrets
+import os
+import supabase_db as db
+from config import STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET
 
-def refresh_strava_token_if_needed(user_id: str, state):
-    """
-    Vérifie si le token expire bientôt et le rafraîchit si nécessaire.
-    Met à jour la base de données et l'état Mesop (State).
-    C'est la clé pour que l'utilisateur n'ait jamais à se reconnecter.
-    """
-    current_time = int(time.time())
+# ==================================================
+# 1. GESTION DES TOKENS (AUTH)
+# ==================================================
+
+def exchange_code_for_token(code: str):
+    """Échange le code d'autorisation reçu contre des jetons d'accès."""
+    payload = {
+        'client_id': STRAVA_CLIENT_ID,
+        'client_secret': STRAVA_CLIENT_SECRET,
+        'code': code,
+        'grant_type': 'authorization_code'
+    }
+    try:
+        res = requests.post("https://www.strava.com/oauth/token", data=payload)
+        if res.status_code == 200:
+            return res.json()
+        print(f"Erreur Token Exchange: {res.text}")
+        return None
+    except Exception as e:
+        print(f"Exception Token Exchange: {e}")
+        return None
+
+def refresh_strava_token_if_needed(user_id: str, s):
+    """Vérifie l'expiration et rafraîchit le token si nécessaire (< 10 min)."""
+    # On récupère les infos fraîches de la DB pour être sûr
+    profile, _ = db.get_user_profile(user_id)
+    if not profile: return False
     
-    # On rafraîchit si le token expire dans moins de 10 minutes (600 secondes)
-    # ou s'il est déjà expiré.
-    if state.strava_expires_at - current_time < 600:
-        print(f"🔄 Rafraîchissement du token Strava pour l'utilisateur {user_id}...")
-        
+    expires_at = profile.get("strava_expires_at", 0)
+    refresh_token = profile.get("strava_refresh_token")
+    current_time = int(time.time())
+
+    # S'il reste moins de 10 min (600s) ou si expiré
+    if expires_at and (expires_at - current_time) < 600:
+        print("🔄 Le token Strava expire bientôt, rafraîchissement...")
         payload = {
             'client_id': STRAVA_CLIENT_ID,
             'client_secret': STRAVA_CLIENT_SECRET,
-            'refresh_token': state.strava_refresh_token,
+            'refresh_token': refresh_token,
             'grant_type': 'refresh_token'
         }
-        
         try:
             res = requests.post("https://www.strava.com/oauth/token", data=payload)
             if res.status_code == 200:
                 new_data = res.json()
-                
-                # 1. Mise à jour du State Mesop pour l'immédiateté
-                state.strava_access_token = new_data['access_token']
-                state.strava_refresh_token = new_data['refresh_token']
-                state.strava_expires_at = new_data['expires_at']
-                
-                # 2. Sauvegarde en base de données Supabase pour la persistance long terme
-                profile_update = {
+                # Mise à jour DB
+                db.update_profile(user_id, {
                     "strava_access_token": new_data['access_token'],
                     "strava_refresh_token": new_data['refresh_token'],
                     "strava_expires_at": new_data['expires_at']
-                }
-                db.update_profile(user_id, profile_update)
-                print("✅ Token Strava renouvelé avec succès.")
+                })
+                # Mise à jour State
+                s.strava_access_token = new_data['access_token']
+                s.strava_refresh_token = new_data['refresh_token']
+                s.strava_expires_at = new_data['expires_at']
                 return True
-            else:
-                print(f"❌ Erreur Strava ({res.status_code}): {res.text}")
-                return False
         except Exception as e:
-            print(f"❌ Exception lors du rafraîchissement Strava : {e}")
+            print(f"Erreur Refresh: {e}")
             return False
             
-    return True # Le token est encore valide
+    # Si le token est encore bon, on met à jour le state pour être sûr
+    s.strava_access_token = profile.get("strava_access_token")
+    return True
 
-def sync_latest_activities(user_id: str, state):
-    """
-    Récupère les dernières activités Strava et les synchronise en base de données.
-    Utilise le token rafraîchi automatiquement.
-    """
-    # Étape cruciale : on s'assure d'avoir un token valide avant l'appel API
-    if not refresh_strava_token_if_needed(user_id, state):
-        return False
-    
-    headers = {'Authorization': f'Bearer {state.strava_access_token}'}
-    params = {'per_page': 30} # On récupère les 30 dernières par exemple
+# ==================================================
+# 2. TRAITEMENT DES DONNÉES (LOGIQUE MÉTIER)
+# ==================================================
+
+def _format_activity_for_db(user_id: str, act: dict) -> dict:
+    """Transforme la donnée brute Strava au format exact de ta DB (Logique 'Old App')."""
+    return {
+        "user_id": user_id,
+        "strava_id": str(act['id']),
+        "external_id": act.get('external_id'),
+        "name": act.get('name', 'Sans titre'),
+        "type": act.get('type'),
+        # Conversion mètres -> km (comme dans ton ancienne app)
+        "distance": round(act.get('distance', 0) / 1000, 2),
+        "start_date": act.get('start_date_local', '')[:10], # YYYY-MM-DD
+        "total_elevation_gain": act.get('total_elevation_gain', 0),
+        "elev_high": act.get('elev_high', 0),
+        "moving_time": act.get('moving_time', 0),
+        "average_heartrate": act.get('average_heartrate', 0),
+        "max_heartrate": act.get('max_heartrate', 0),
+        "average_speed": act.get('average_speed', 0),
+        "max_speed": act.get('max_speed', 0),
+        "average_cadence": act.get('average_cadence', 0),
+        "average_watts": act.get('average_watts', 0),
+        "kilojoules": act.get('kilojoules', 0),
+        "suffer_score": act.get('suffer_score', 0),
+        "kudos_count": act.get('kudos_count', 0),
+        "device_name": act.get('device_name'),
+        # Sérialisation des listes/objets si nécessaire pour Supabase (JSONB ou texte)
+        "start_latlng": act.get('start_latlng'), 
+        "end_latlng": act.get('end_latlng'),
+        "gear_id": act.get('gear_id')
+    }
+
+# ==================================================
+# 3. SYNCHRONISATION
+# ==================================================
+
+def sync_latest_activities(user_id: str, s):
+    """Récupère les 30 dernières activités (Synchro rapide)."""
+    token = s.strava_access_token
+    if not token: return False
+
+    url = "https://www.strava.com/api/v3/athlete/activities"
+    headers = {'Authorization': f'Bearer {token}'}
     
     try:
-        res = requests.get("https://www.strava.com/api/v3/athlete/activities", headers=headers, params=params)
+        res = requests.get(url, headers=headers, params={'per_page': 30})
         if res.status_code == 200:
             activities = res.json()
-            if not activities:
-                return True
+            if not activities: return True
             
-            # Préparation des données pour l'upsert dans Supabase
-            batch_data = []
-            for act in activities:
-                batch_data.append({
-                    "user_id": user_id,
-                    "strava_id": str(act['id']),
-                    "name": act['name'],
-                    "type": act['type'],
-                    "distance": round(act['distance'] / 1000, 2), # km
-                    "start_date": act['start_date_local'],
-                    "moving_time": act.get('moving_time', 0),
-                    "total_elevation_gain": act.get('total_elevation_gain', 0),
-                    "average_heartrate": act.get('average_heartrate', 0),
-                    "gear_id": act.get('gear_id')
-                })
+            batch_data = [_format_activity_for_db(user_id, act) for act in activities]
             
-            # Appel à ta fonction DB pour sauvegarder (avec on_conflict sur strava_id)
-            # db.upsert_activities(batch_data) 
+            # Envoi en DB
+            db.upsert_activities(batch_data)
             
-            # Mise à jour du timestamp de dernière synchro
-            now_iso = datetime.now(timezone.utc).isoformat()
-            db.update_profile(user_id, {"last_strava_sync": now_iso})
-            state.last_strava_sync = now_iso
-            
+            # Update date de synchro
+            db.update_profile(user_id, {"last_strava_sync": datetime.now(timezone.utc).isoformat()})
             return True
-    except Exception as e:
-        print(f"❌ Erreur lors de la synchro des activités : {e}")
-        return False
-    return False
-
-def get_strava_auth_url(redirect_uri: str):
-    """Génère l'URL pour la première connexion (OAuth)."""
-    import urllib.parse
-    params = {
-        "client_id": STRAVA_CLIENT_ID,
-        "redirect_uri": redirect_uri,
-        "response_type": "code",
-        "scope": "read,activity:read_all",
-        "approval_prompt": "auto"
-    }
-    return f"https://www.strava.com/oauth/authorize?{urllib.parse.urlencode(params)}"
-
-# --- FONCTION DE CONTRÔLE DE FLUX ---
-def sync_if_needed(user_id: str, state):
-    """
-    Lance la synchro seulement si la dernière date de synchro est vieille de plus d'une heure.
-    Cela évite de saturer l'API Strava et de ralentir l'appli inutilement.
-    """
-    # Si on n'a jamais synchronisé (première connexion)
-    if not state.last_strava_sync:
-        print("Première synchronisation Strava...")
-        return sync_latest_activities(user_id, state)
-        
-    try:
-        # On nettoie la date (cas des 'Z' de Supabase) et on compare
-        dt_str = state.last_strava_sync.replace('Z', '+00:00')
-        last_sync = datetime.fromisoformat(dt_str)
-        
-        if datetime.now(timezone.utc) - last_sync > timedelta(hours=1):
-            print("Plus d'une heure depuis la dernière synchro, mise à jour...")
-            return sync_latest_activities(user_id, state)
         else:
-            print("Synchro Strava récente, pas besoin de mise à jour.")
-            
+            print(f"Erreur API Strava: {res.status_code} - {res.text}")
     except Exception as e:
-        print(f"Erreur lors du calcul du délai de synchro: {e}")
-        # En cas de doute, on synchronise
-        return sync_latest_activities(user_id, state)
-    
+        print(f"Erreur Sync: {e}")
     return False
+
+def import_complete_history(user_id: str, s):
+    """Importe TOUT l'historique (boucle pagination). Attention: peut être long."""
+    token = s.strava_access_token
+    if not token: return 0
+
+    url = "https://www.strava.com/api/v3/athlete/activities"
+    headers = {'Authorization': f'Bearer {token}'}
+    
+    page = 1
+    total_imported = 0
+    per_page = 200 # Max autorisé par Strava par page
+    
+    while True:
+        print(f"📥 Importation page {page}...")
+        try:
+            res = requests.get(url, headers=headers, params={'per_page': per_page, 'page': page})
+            if res.status_code != 200:
+                print(f"Arrêt prématuré : {res.status_code}")
+                break
+            
+            activities = res.json()
+            if not activities: # Liste vide = fin de l'historique
+                break
+                
+            batch_data = [_format_activity_for_db(user_id, act) for act in activities]
+            db.upsert_activities(batch_data)
+            
+            total_imported += len(activities)
+            page += 1
+            
+        except Exception as e:
+            print(f"Erreur durant l'import massif: {e}")
+            break
+            
+    # Update date de synchro finale
+    db.update_profile(user_id, {"last_strava_sync": datetime.now(timezone.utc).isoformat()})
+    return total_imported
