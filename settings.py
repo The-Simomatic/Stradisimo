@@ -11,6 +11,7 @@ import json
 
 def get_strava_auth_url():
     client_id = os.getenv("STRAVA_CLIENT_ID", "")
+    print("DEBUG STRAVA CLIENT ID:", client_id)
     redirect_uri = os.getenv("STRAVA_REDIRECT_URI", "http://localhost:32123")
     params = {
         "client_id": client_id,
