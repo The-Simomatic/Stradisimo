@@ -140,8 +140,9 @@ def settings_screen(s: State):
                     is_linked = getattr(s, "is_strava_linked", False)
                     
                     if not is_linked:
-                        # Utilisation de native_link pour éviter que Mesop ne tronque l'URL de l'OAuth
-                        with me.native_link(url=get_strava_auth_url()):
+                        # On utilise me.html_link pour forcer le navigateur à sortir de l'app
+                        # et envoyer l'URL complète avec les paramètres à Strava
+                        with me.html_link(url=get_strava_auth_url()):
                             with me.box(style=st.SETTINGS_CARD_STYLE):
                                 me.icon(icon="link", style=me.Style(margin=me.Margin(right=16), color=st.COLOR_PRIMARY))
                                 with me.box(style=me.Style(flex_grow=1)):
