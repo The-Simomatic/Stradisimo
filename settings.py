@@ -28,7 +28,8 @@ def get_strava_auth_url():
     return f"https://www.strava.com/oauth/authorize?{urllib.parse.urlencode(params)}"
 
 def on_strava_connect_click(e: me.ClickEvent):
-    me.navigate(get_strava_auth_url())
+    import webbrowser
+    webbrowser.open(get_strava_auth_url())
 
 def on_start_full_import_click(e: me.ClickEvent):
     """Lance l'importation de tout l'historique."""
