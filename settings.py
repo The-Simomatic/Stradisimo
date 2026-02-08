@@ -140,16 +140,25 @@ def settings_screen(s: State):
                     is_linked = getattr(s, "is_strava_linked", False)
                     
                     if not is_linked:
-                        # On utilise me.html_link pour forcer le navigateur à sortir de l'app
-                        # et envoyer l'URL complète avec les paramètres à Strava
-                        with me.html_link(url=get_strava_auth_url()):
-                            with me.box(style=st.SETTINGS_CARD_STYLE):
-                                me.icon(icon="link", style=me.Style(margin=me.Margin(right=16), color=st.COLOR_PRIMARY))
-                                with me.box(style=me.Style(flex_grow=1)):
-                                    me.text("Lier mon compte Strava", style=st.SETTINGS_CARD_TITLE)
-                                    me.text("Autoriser la synchronisation", style=st.SETTINGS_CARD_SUBTITLE)
-                                me.icon(icon="open_in_new", style=me.Style(color="rgba(229, 229, 229, 0.3)"))
+                        # On génère l'URL complète
+                        auth_url = get_strava_auth_url()
+                        
+                        # On crée le bouton manuellement en HTML pour contourner le bug de navigation
+                        with me.box(style=st.SETTINGS_CARD_STYLE):
+                            me.icon(icon="link", style=me.Style(margin=me.Margin(right=16), color=st.COLOR_PRIMARY))
+                            with me.box(style=me.Style(flex_grow=1)):
+                                # Cette balise <a> est intouchable par le routeur Mesop
+                                me.html(f"""
+                                    <a href="{auth_url}" style="text-decoration: none; color: inherit; display: block; width: 100%;">
+                                        <div style="font-family: Roboto, sans-serif;">
+                                            <div style="font-size: 16px; font-weight: 500; color: white;">Lier mon compte Strava</div>
+                                            <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px;">Autoriser la synchronisation</div>
+                                        </div>
+                                    </a>
+                                """)
+                            me.icon(icon="open_in_new", style=me.Style(color="rgba(229, 229, 229, 0.3)"))
                     else:
+                        # Le reste ne change pas
                         render_menu_item(
                             key="strava_linked_status",
                             icon="check_circle",
@@ -157,6 +166,7 @@ def settings_screen(s: State):
                             on_click=None,
                             sub_label="Votre compte est synchronisé"
                         )
+                        # ... (garde tes autres boutons déconnecter/importer ici)
 
                         render_menu_item(
                             key="strava_unauth",
