@@ -10,13 +10,9 @@ import json
 # --- LOGIQUE STRAVA ---
 
 def get_strava_auth_url():
-    client_id = os.getenv("STRAVA_CLIENT_ID", "")
-    print("DEBUG STRAVA CLIENT ID:", client_id)
-    redirect_uri = os.getenv("STRAVA_REDIRECT_URI", "http://localhost:32123")
-
-    print("🔥 STRAVA DEBUG 🔥")
-    print("CLIENT_ID =", client_id)
-    print("REDIRECT_URI =", redirect_uri)
+    """Génère l'URL d'autorisation Strava avec les variables d'environnement."""
+    client_id = os.getenv("STRAVA_CLIENT_ID", "").strip()
+    redirect_uri = os.getenv("STRAVA_REDIRECT_URI", "http://localhost:32123").strip()
 
     params = {
         "client_id": client_id,
@@ -27,17 +23,12 @@ def get_strava_auth_url():
     }
     return f"https://www.strava.com/oauth/authorize?{urllib.parse.urlencode(params)}"
 
-def on_strava_connect_click(e: me.ClickEvent):
-    url = get_strava_auth_url()
-    # Si tu es sur une version récente de Mesop, utilise :
-    me.navigate(url)
-
 def on_start_full_import_click(e: me.ClickEvent):
     """Lance l'importation de tout l'historique."""
     s = me.state(State)
     s.is_loading = True
     
-    # Appel de la fonction d'importation massive (peut prendre du temps)
+    # Appel de la fonction d'importation massive
     count = su.import_complete_history(s.user_id, s)
     
     # Rechargement immédiat des données pour l'affichage
@@ -50,14 +41,12 @@ def on_start_full_import_click(e: me.ClickEvent):
     else:
         s.success_message = "Import terminé (aucune nouvelle activité trouvée)."
         
-    # Retour au menu Strava
     s.active_sub_menu = "strava_main"
 
 def on_disconnect_strava(e: me.ClickEvent):
     """Supprime les accès Strava en base et réinitialise l'état."""
     s = me.state(State)
     
-    # 1. Nettoyage en base de données
     data_to_clear = {
         "strava_access_token": None,
         "strava_refresh_token": None,
@@ -66,7 +55,6 @@ def on_disconnect_strava(e: me.ClickEvent):
     }
     db.update_profile(s.user_id, data_to_clear)
     
-    # 2. Mise à jour du State
     s.strava_access_token = ""
     s.strava_refresh_token = ""
     s.is_strava_linked = False
@@ -100,7 +88,6 @@ def render_back_button(label="Retour"):
 
 def render_menu_item(icon: str, label: str, key: str, on_click=on_page_change, sub_label: str = ""):
     """Affiche un élément de menu cliquable."""
-    # Si on_click est None, on ne met pas d'action (utile pour l'affichage statique)
     click_handler = on_click if on_click else lambda e: None
     
     with me.box(key=key, on_click=click_handler, style=st.SETTINGS_CARD_STYLE):
@@ -110,7 +97,6 @@ def render_menu_item(icon: str, label: str, key: str, on_click=on_page_change, s
             if sub_label:
                 me.text(sub_label, style=st.SETTINGS_CARD_SUBTITLE)
         
-        # Affiche la flèche seulement si c'est cliquable
         if on_click:
             me.icon(icon="chevron_right", style=me.Style(color="rgba(229, 229, 229, 0.3)"))
 
@@ -118,7 +104,6 @@ def render_menu_item(icon: str, label: str, key: str, on_click=on_page_change, s
 
 def settings_screen(s: State):
     with me.box(style=me.Style(width="100%", display="block")):
-        
         active_menu = getattr(s, "active_sub_menu", "")
 
         # --- CASE 1 : SOUS-MENU IMPORT ---
@@ -134,13 +119,13 @@ def settings_screen(s: State):
                     if s.is_loading:
                         with me.box(style=me.Style(padding=me.Padding.all(20), display="flex", flex_direction="column", align_items="center")):
                             me.progress_spinner()
-                            me.text("Importation en cours... Veuillez patienter", style=me.Style(margin=me.Margin(top=10)))
+                            me.text("Importation en cours...", style=me.Style(margin=me.Margin(top=10)))
                     else:
                         render_menu_item(
                             icon="download", 
                             label="Lancer l'importation complète", 
                             key="start_sync", 
-                            on_click=on_start_full_import_click, # <-- Appel de la fonction ici
+                            on_click=on_start_full_import_click,
                             sub_label="Cette opération peut prendre quelques minutes"
                         )
 
@@ -155,41 +140,38 @@ def settings_screen(s: State):
                     is_linked = getattr(s, "is_strava_linked", False)
                     
                     if not is_linked:
-                        # Option A : Le compte n'est pas lié -> On propose la connexion
-                        render_menu_item(
-                            key="strava_auth",
-                            icon="link",
-                            label="Lier mon compte Strava",
-                            on_click=on_strava_connect_click,
-                            sub_label="Autoriser la synchronisation de vos activités"
-                        )
+                        # Utilisation de native_link pour éviter que Mesop ne tronque l'URL de l'OAuth
+                        with me.native_link(url=get_strava_auth_url()):
+                            with me.box(style=st.SETTINGS_CARD_STYLE):
+                                me.icon(icon="link", style=me.Style(margin=me.Margin(right=16), color=st.COLOR_PRIMARY))
+                                with me.box(style=me.Style(flex_grow=1)):
+                                    me.text("Lier mon compte Strava", style=st.SETTINGS_CARD_TITLE)
+                                    me.text("Autoriser la synchronisation", style=st.SETTINGS_CARD_SUBTITLE)
+                                me.icon(icon="open_in_new", style=me.Style(color="rgba(229, 229, 229, 0.3)"))
                     else:
-                        # Option B : Le compte est déjà lié -> On affiche le statut et l'option de déconnexion
                         render_menu_item(
                             key="strava_linked_status",
                             icon="check_circle",
                             label="Compte Strava lié ✅",
-                            on_click=None, # Statut seul, pas de clic
+                            on_click=None,
                             sub_label="Votre compte est synchronisé"
                         )
 
-                        # Bouton pour DÉCONNECTER (Indispensable pour tes tests ou changer de compte)
                         render_menu_item(
                             key="strava_unauth",
                             icon="link_off",
                             label="Déconnecter Strava",
-                            on_click=on_disconnect_strava, # Assure-toi d'avoir ajouté cette fonction (voir ci-dessous)
-                            sub_label="Supprimer l'accès et réinitialiser la liaison"
+                            on_click=on_disconnect_strava,
+                            sub_label="Supprimer la liaison avec ce compte"
                         )
 
                         me.box(style=me.Style(height=10))
                         
-                        # Bouton Importer (visible seulement si lié)
                         render_menu_item(
                             key="import_history",
                             icon="auto_awesome",
                             label="Importer l'historique complet",
-                            sub_label="Récupérer toutes vos anciennes activités",
+                            sub_label="Récupérer vos anciennes activités",
                             on_click=set_sub_menu
                         )
 
@@ -199,10 +181,8 @@ def settings_screen(s: State):
                 me.text("PARAMÈTRES", style=st.PAGE_TITLE_STYLE)
                 with me.box(style=me.Style(width="100%", max_width=500)):
                     
-                    # Feedback utilisateur
                     if s.success_message:
                         me.text(s.success_message, style=st.SUCCESS_TEXT_STYLE)
-                        # On vide le message après affichage pour éviter qu'il reste
                         s.success_message = ""
 
                     me.text("MON COMPTE", style=st.PAGE_SUBTITLE)
