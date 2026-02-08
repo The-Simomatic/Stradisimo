@@ -10,13 +10,13 @@ from settings import settings_screen
 from cgu import cgu_screen  
 from profile import render_profile_setup 
 from password_reset import password_reset_screen
-import strava_utils as su # Ton nouveau fichier
+import strava_utils as su 
+import json
 
 # --- LOGIQUE BASE DE DONNÉES ---
 import supabase_db as db
 
 # --- CONFIGURATION DU ROUTAGE ---
-# Centralisation des pages pour éviter les elif à répétition
 PAGES_INTERNES = {
     "dashboard": dashboard_screen,
     "planning": planning_screen,
@@ -30,33 +30,31 @@ PAGES_INTERNES = {
 def update_state_from_profile(s: State, profile: dict):
     """Met à jour les variables d'état à partir des données Supabase."""
     if profile:
-        # 1. DONNÉES DE PROFIL
         s.prenom = profile.get("prenom") or ""
         s.nom = profile.get("nom") or ""
-        s.date_n = profile.get("date_n") or ""  # <-- RÉAJOUTÉ ICI
+        s.date_n = profile.get("date_n") or ""
         s.poids = profile.get("poids") or 0.0
         s.vma = profile.get("vma") or 0.0
-        s.sexe = profile.get("sexe") or ""       # Vérifie si c'est 'sexe' ou 'sexetext' en base
+        s.sexe = profile.get("sexe") or ""
         s.sport_pref = profile.get("sport_pref") or ""
         s.niveau = profile.get("niveau") or "Débutant"
 
-        # 2. DONNÉES STRAVA (Persistance)
         s.strava_refresh_token = profile.get("strava_refresh_token") or ""
         s.strava_access_token = profile.get("strava_access_token") or ""
         
-        # Sécurité pour l'expiration (doit être int)
         expires_at = profile.get("strava_expires_at")
         try:
             s.strava_expires_at = int(expires_at) if expires_at else 0
         except:
             s.strava_expires_at = 0
         
-        # Date de synchro
         last_sync = profile.get("last_strava_sync")
         s.last_strava_sync = str(last_sync) if last_sync else ""
-        
-        # État de la connexion
         s.is_strava_linked = bool(s.strava_refresh_token)
+
+        # --- AJOUT ICI : Charger les activités lors du chargement du profil ---
+        activities = db.get_latest_activities(s.user_id)
+        s.recent_activities_json = json.dumps(activities)
 
 def handle_recovery_logic(s: State):
     """Gère la détection du token de récupération de mot de passe."""
@@ -78,16 +76,13 @@ def handle_recovery_logic(s: State):
 # --- GESTIONNAIRES D'ÉVÉNEMENTS ---
 
 def handle_login(e: me.ClickEvent):
-    """Gère la connexion, initialise le State privé et redirige."""
     s = me.state(State)
-    
     if not s.email or not s.password:
         s.error_message = "Veuillez remplir tous les champs."
         return
 
     s.is_loading = True 
     s.error_message = "" 
-    
     result = db.login_user(s.email, s.password)
     
     if result["error"]:
@@ -106,8 +101,6 @@ def handle_login(e: me.ClickEvent):
             update_state_from_profile(s, profile)
         
         s.is_logged_in = True
-        
-        # Redirection intelligente
         if not s.prenom or not s.nom:
             s.is_completing_profile = True
             s.current_page = "profile_edit"
@@ -118,15 +111,14 @@ def handle_login(e: me.ClickEvent):
     s.is_loading = False 
 
 def handle_logout(e: me.ClickEvent):
-    """Nettoyage complet du State."""
     s = me.state(State)
     db.supabase.auth.sign_out()
-    
     s.is_logged_in = False
     s.user_id = ""
     s.email = ""
     s.prenom = ""
     s.nom = ""
+    s.recent_activities_json = "[]" # On vide aussi les activités
     s.current_page = "login"
     s.error_message = ""
     s.show_signup = False
@@ -140,57 +132,39 @@ def handle_logout(e: me.ClickEvent):
 )
 def main():
     s = me.state(State)
-    
-    # Exécution de la logique de récupération de compte
     handle_recovery_logic(s)
+
     # --- RAFFRAÎCHISSEMENT SILENCIEUX STRAVA ---
-    # Si l'utilisateur est connecté et que Strava est lié,
-    # on vérifie si le jeton a besoin d'un coup de neuf.
     if s.is_logged_in and getattr(s, "is_strava_linked", False) and s.user_id:
-        # On rafraîchit le token si nécessaire (silencieux)
         if su.refresh_strava_token_if_needed(s.user_id, s):
-            # On lance la synchro des dernières activités vers la DB
-            # Grâce à ton 'upsert', cela ne créera pas de doublons.
+            # 1. On synchronise avec Strava vers Supabase
             su.sync_latest_activities(s.user_id, s)
+            # 2. AJOUT ICI : On recharge les données de la DB vers le State après synchro
+            activities = db.get_latest_activities(s.user_id)
+            s.recent_activities_json = json.dumps(activities)
 
     with me.box(style=st.MAIN_BOX_STYLE):
         cp.render_header(s, on_logout=handle_logout)
-        
-        # Séparateur turquoise subtil
         with me.box(style=me.Style(height=1, width="100%", background="rgba(40, 165, 168, 0.3)", margin=me.Margin(bottom=30))):
             pass
 
-        # --- LOGIQUE DE NAVIGATION ---
-        
-        # 1. Pages Publiques ou Spéciales
         if s.current_page == "cgu":
             cgu_screen(s)
         elif s.current_page == "password_edit":
             password_reset_screen(s)
-            
-        # 2. État Non Connecté
         elif not s.is_logged_in:
             if s.show_signup:
                 render_signup(s)
             else:
                 render_login(s, on_login=handle_login)
-        
-        # 3. État Connecté mais Profil incomplet
         elif s.is_logged_in and (s.is_completing_profile or not s.prenom or not s.nom):
             render_profile_setup(s)
-            
-        # 4. État Connecté - Accès aux pages internes
         else:
             cp.render_navbar(s)
-            
-            # Sécurité de routage
             if s.current_page not in PAGES_INTERNES:
                 s.current_page = "dashboard"
 
-            # Conteneur de contenu principal
             with me.box(style=st.CONTENT_CONTAINER):
                 if s.is_loading:
                     me.progress_spinner(style=me.Style(margin=me.Margin(bottom=20)))
-
-                # Appel dynamique de la page via le dictionnaire
                 PAGES_INTERNES[s.current_page](s)

@@ -109,3 +109,19 @@ def upsert_activities(activities_list):
     except Exception as e:
         print(f"❌ Erreur Upsert Activités : {e}")
         return None
+
+def get_latest_activities(user_id: str, limit: int = 3):
+    try:
+        # On demande explicitement le tri descendant sur la date
+        response = (
+            supabase.table("activities")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("start_date", desc=True) 
+            .limit(limit)
+            .execute()
+        )
+        return response.data # Retourne une liste de dicts []
+    except Exception as e:
+        print(f"Erreur DB: {e}")
+        return []

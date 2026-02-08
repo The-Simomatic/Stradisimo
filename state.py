@@ -1,4 +1,5 @@
 import mesop as me
+import json
 
 @me.stateclass
 class State:
@@ -46,3 +47,4 @@ class State:
     strava_refresh_token: str = ""
     strava_expires_at: int = 0
     last_strava_sync: str = ""
+    recent_activities_json: str = "[]" # On initialise avec un tableau vide en string

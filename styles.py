@@ -336,3 +336,37 @@ SETTINGS_CARD_SUBTITLE = me.Style(
     font_weight="400",
     opacity=0.6,
 )
+
+# ==================================================
+# 11. ITEMS D'ACTIVITÉS (DASHBOARD)
+# ==================================================
+
+ACTIVITY_ITEM_CONTAINER = me.Style(
+    display="flex", 
+    justify_content="space-between", 
+    align_items="center",
+    padding=me.Padding.symmetric(vertical=15, horizontal=12),
+    border=me.Border(bottom=me.BorderSide(width=1, color="rgba(255,255,255,0.08)")),
+    width="100%"
+)
+
+ACTIVITY_NAME_STYLE = me.Style(
+    font_weight="700", 
+    font_size="1rem", 
+    color=COLOR_TEXT,
+    font_family="Inter"
+)
+
+ACTIVITY_DATE_STYLE = me.Style(
+    font_size="0.8rem", 
+    color=COLOR_TEXT,
+    opacity=0.6,
+    margin=me.Margin(top=2)
+)
+
+ACTIVITY_DISTANCE_STYLE = me.Style(
+    color=COLOR_PRIMARY,
+    font_weight="900", 
+    font_size="1.1rem",
+    font_family="Kanit"
+)
