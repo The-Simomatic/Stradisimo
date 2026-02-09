@@ -137,40 +137,54 @@ def sync_latest_activities(user_id: str, s):
     return False
 
 def import_complete_history(user_id: str, s):
-    """Importe TOUT l'historique (boucle pagination). Attention: peut être long."""
+    """
+    Importe TOUT l'historique via un générateur.
+    Yield le nombre total d'activités à chaque page pour maintenir la connexion Mesop.
+    """
     token = s.strava_access_token
-    if not token: return 0
+    if not token: 
+        return 0
 
     url = "https://www.strava.com/api/v3/athlete/activities"
     headers = {'Authorization': f'Bearer {token}'}
     
     page = 1
     total_imported = 0
-    per_page = 200 # Max autorisé par Strava par page
+    per_page = 200 # Max autorisé par Strava
     
     while True:
-        print(f"📥 Importation page {page}...")
+        print(f"📥 Importation Strava : Page {page}...")
         try:
             res = requests.get(url, headers=headers, params={'per_page': per_page, 'page': page})
+            
             if res.status_code != 200:
-                print(f"Arrêt prématuré : {res.status_code}")
+                print(f"⚠️ Arrêt : Code {res.status_code} - {res.text}")
                 break
             
             activities = res.json()
-            if not activities: # Liste vide = fin de l'historique
+            if not activities: # Fin de l'historique
+                print("🏁 Fin de l'historique Strava atteint.")
                 break
                 
+            # Préparation et insertion
             batch_data = [_format_activity_for_db(user_id, act) for act in activities]
             db.upsert_activities(batch_data)
             
             total_imported += len(activities)
             page += 1
-            time.sleep(0.5) # On fait une pause de 500ms entre chaque page de 200
+            
+            # CRUCIAL : On renvoie le total à Mesop pour rafraîchir le spinner
+            yield total_imported
+            
+            # Pause pour respecter les limites de l'API Strava
+            time.sleep(0.6) 
             
         except Exception as e:
-            print(f"Erreur durant l'import massif: {e}")
+            print(f"❌ Erreur critique durant l'import : {e}")
             break
             
     # Update date de synchro finale
     db.update_profile(user_id, {"last_strava_sync": datetime.now(timezone.utc).isoformat()})
+    
+    # On renvoie le résultat final
     return total_imported

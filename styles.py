@@ -3,7 +3,7 @@ import mesop as me
 # ==================================================
 # 1. PALETTE DE COULEURS OFFICIELLE
 # ==================================================
-COLOR_BG = "#0d0b50"        # Bleu nuit (Fond)
+COLOR_BG = "#e5e5e5"        # Bleu nuit (Fond)
 COLOR_CARD_BG = "#161465"   # Bleu cartes
 COLOR_SECONDARY = "#0D0B50" # Bleu nuit profond (Texte dans zones claires)
 COLOR_PRIMARY = "#28A5A8"   # Turquoise (Boutons / Accents)

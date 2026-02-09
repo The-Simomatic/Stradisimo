@@ -24,32 +24,47 @@ def get_strava_auth_url():
     return f"https://www.strava.com/oauth/authorize?{urllib.parse.urlencode(params)}"
 
 def on_start_full_import_click(e: me.ClickEvent):
+    """Lance l'importation complète en itérant sur le générateur pour éviter les timeouts."""
     s = me.state(State)
     s.is_loading = True
-    s.error_message = "" # On nettoie les erreurs précédentes
+    s.error_message = ""
+    s.success_message = "" # On vide aussi le message de succès précédent
     yield 
 
     try:
-        # On lance l'importation
-        # Si ta fonction import_complete_history met plus de 2 min, 
-        # le serveur risque de couper.
-        count = su.import_complete_history(s.user_id, s)
+        # On récupère le générateur depuis strava_utils
+        import_generator = su.import_complete_history(s.user_id, s)
         
-        if count > 0:
-            s.success_message = f"✅ {count} activités synchronisées !"
-            # Mise à jour auto du dashboard
+        final_count = 0
+        # On boucle sur chaque "yield" de la fonction d'import (chaque page de 200)
+        for count in import_generator:
+            final_count = count
+            # Optionnel : Tu peux afficher la progression en temps réel dans la console
+            print(f"Progression : {final_count} activités récupérées...")
+            # CRUCIAL : Ce yield ici dit à Mesop de rafraîchir le spinner 
+            # et de garder la connexion HTTP active avec le navigateur
+            yield 
+
+        # Une fois la boucle terminée (plus de pages à charger)
+        if final_count > 0:
+            s.success_message = f"✅ {final_count} activités synchronisées avec succès !"
+            # Mise à jour immédiate du dashboard
             activities = db.get_latest_activities(s.user_id)
             s.recent_activities_json = json.dumps(activities)
         else:
-            s.error_message = "Aucune nouvelle activité trouvée ou interruption. Veuillez relancer la synchronisation."
+            # Si le compte est à 0 mais qu'il n'y a pas eu d'exception,
+            # c'est que le compte Strava était déjà à jour ou vide.
+            s.success_message = "Votre historique est déjà à jour."
 
     except Exception as ex:
-        # Si le script plante ou que Strava ne répond plus
-        print(f"Erreur Import: {ex}")
-        s.error_message = "La synchronisation a pris trop de temps ou a été interrompue. Pas d'inquiétude, vos données sont protégées. Veuillez relancer."
+        # En cas de plantage (ex: plus de réseau, timeout serveur)
+        print(f"Erreur UI Import: {ex}")
+        s.error_message = "La synchronisation a été interrompue (Timeout). Pas d'inquiétude, les premières activités sont enregistrées. Veuillez relancer pour terminer."
     
-    s.is_loading = False
-    yield
+    finally:
+        # On s'assure que le chargement s'arrête quoi qu'il arrive
+        s.is_loading = False
+        yield
 
 def on_disconnect_strava(e: me.ClickEvent):
     """Supprime les accès Strava en base et réinitialise l'état."""
