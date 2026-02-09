@@ -165,6 +165,7 @@ def import_complete_history(user_id: str, s):
             
             total_imported += len(activities)
             page += 1
+            time.sleep(0.5) # On fait une pause de 500ms entre chaque page de 200
             
         except Exception as e:
             print(f"Erreur durant l'import massif: {e}")

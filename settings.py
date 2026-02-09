@@ -24,35 +24,32 @@ def get_strava_auth_url():
     return f"https://www.strava.com/oauth/authorize?{urllib.parse.urlencode(params)}"
 
 def on_start_full_import_click(e: me.ClickEvent):
-    """Lance l'importation de tout l'historique."""
     s = me.state(State)
-    
-    # 1. On active le chargement pour faire apparaître le spinner
     s.is_loading = True
-    yield # Force Mesop à mettre à jour l'interface immédiatement
-    
+    s.error_message = "" # On nettoie les erreurs précédentes
+    yield 
+
     try:
-        # 2. Appel de la fonction d'importation (longue durée)
-        # On suppose que su.import_complete_history renvoie le nombre d'activités
+        # On lance l'importation
+        # Si ta fonction import_complete_history met plus de 2 min, 
+        # le serveur risque de couper.
         count = su.import_complete_history(s.user_id, s)
         
-        # 3. Rechargement des données
-        activities = db.get_latest_activities(s.user_id)
-        s.recent_activities_json = json.dumps(activities)
-        
-        # 4. Message de succès
         if count > 0:
-            s.success_message = f"✅ Importation réussie ! {count} activités ajoutées à votre historique."
+            s.success_message = f"✅ {count} activités synchronisées !"
+            # Mise à jour auto du dashboard
+            activities = db.get_latest_activities(s.user_id)
+            s.recent_activities_json = json.dumps(activities)
         else:
-            s.success_message = "Votre historique est déjà à jour."
-            
+            s.error_message = "Aucune nouvelle activité trouvée ou interruption. Veuillez relancer la synchronisation."
+
     except Exception as ex:
-        s.error_message = f"Erreur lors de l'import : {str(ex)}"
+        # Si le script plante ou que Strava ne répond plus
+        print(f"Erreur Import: {ex}")
+        s.error_message = "La synchronisation a pris trop de temps ou a été interrompue. Pas d'inquiétude, vos données sont protégées. Veuillez relancer."
     
-    # 5. On coupe le chargement et on change de vue
     s.is_loading = False
-    s.active_sub_menu = "strava_main"
-    yield # On renvoie l'état final
+    yield
 
 def on_disconnect_strava(e: me.ClickEvent):
     """Supprime les accès Strava en base et réinitialise l'état."""
@@ -121,24 +118,32 @@ def settings_screen(s: State):
         if active_menu == "import_history":
             with me.box(key="menu_import", style=me.Style(width="100%", display="flex", flex_direction="column", align_items="center")):
                 me.text("IMPORTATION HISTORIQUE", style=st.PAGE_TITLE_STYLE)
+                
                 with me.box(style=me.Style(width="100%", max_width=500)):
                     render_back_button("Retour à Strava")
                     me.box(style=me.Style(height=20))
                     
-                    me.text("Souhaitez-vous récupérer toutes vos activités passées ?", style=st.SETTINGS_CARD_SUBTITLE)
-                    
+                    # 1. Gestion de l'affichage des erreurs
+                    if s.error_message:
+                        with me.box(style=me.Style(padding=me.Padding.all(12), background="#fff2f2", border=me.Border.all(me.BorderSide(width=1, color="#ff5252")), border_radius=8, margin=me.Margin(bottom=20))):
+                            me.text(s.error_message, style=me.Style(color="#ff5252", font_size=13, font_weight="500"))
+
+                    # 2. Affichage conditionnel (Chargement VS Formulaire)
                     if s.is_loading:
                         with me.box(style=me.Style(padding=me.Padding.all(40), display="flex", flex_direction="column", align_items="center")):
                             me.progress_spinner()
-                            me.text("Récupération de vos activités chez Strava...", style=me.Style(margin=me.Margin(top=20), font_weight="500"))
-                            me.text("Cela peut prendre quelques minutes selon votre historique.", style=me.Style(font_size=12, opacity=0.7))
+                            me.text("Synchronisation avec Strava en cours...", style=me.Style(margin=me.Margin(top=20), font_weight="500"))
+                            me.text("Veuillez ne pas fermer cette page.", style=me.Style(font_size=12, opacity=0.7))
                     else:
+                        # On n'affiche la question et le bouton QUE si on ne charge pas
+                        me.text("Souhaitez-vous récupérer toutes vos activités passées ?", style=st.SETTINGS_CARD_SUBTITLE)
+                        me.box(style=me.Style(height=10))
                         render_menu_item(
                             icon="download", 
                             label="Lancer l'importation complète", 
                             key="start_sync", 
                             on_click=on_start_full_import_click,
-                            sub_label="Cette opération peut prendre quelques minutes"
+                            sub_label="Cela mettra à jour vos données existantes"
                         )
 
         # --- CASE 2 : SOUS-MENU STRAVA ---
