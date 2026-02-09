@@ -169,21 +169,26 @@ def settings_screen(s: State):
                     render_back_button("Retour à Strava")
                     me.box(style=me.Style(height=20))
                     
+                    # 1. Feedback Erreur
                     if s.error_message:
                         with me.box(style=me.Style(padding=me.Padding.all(12), background="#fff2f2", border=me.Border.all(me.BorderSide(width=1, color="#ff5252")), border_radius=8, margin=me.Margin(bottom=20))):
                             me.text(s.error_message, style=me.Style(color="#ff5252", font_size=13, font_weight="500"))
 
+                    # 2. Feedback Succès
                     if s.success_message:
                         with me.box(style=me.Style(padding=me.Padding.all(12), background="#f2fff2", border=me.Border.all(me.BorderSide(width=1, color="#4caf50")), border_radius=8, margin=me.Margin(bottom=20))):
                             me.text(s.success_message, style=me.Style(color="#4caf50", font_size=13, font_weight="500"))
 
+                    # 3. État de Chargement
                     if s.is_loading:
                         with me.box(style=me.Style(padding=me.Padding.all(40), display="flex", flex_direction="column", align_items="center")):
                             me.progress_spinner()
                             me.text("Synchronisation avec Strava en cours...", style=me.Style(margin=me.Margin(top=20), font_weight="500"))
                             me.text("Veuillez patienter quelques instants.", style=me.Style(font_size=12, opacity=0.7))
                     else:
-                        # BOUTON 1 : SYNCHRO RÉCENTE
+                        # --- BOUTONS D'ACTION ---
+
+                        # BOUTON 1 : SYNCHRO RÉCENTE (Les manquantes)
                         render_menu_item(
                             icon="sync", 
                             label="Synchroniser les manquantes", 
@@ -194,19 +199,31 @@ def settings_screen(s: State):
                         
                         me.box(style=me.Style(height=15))
                         
-                        # BOUTON 2 : IMPORT COMPLET (avec pagination)
+                        # BOUTON 2 : IMPORT COMPLET (Dynamique par numéros d'activités)
                         if s.strava_import_next_page != -1:
-                            import_label = "Lancer l'importation complète" if s.strava_import_next_page == 1 else f"Continuer l'import (Page {s.strava_import_next_page})"
+                            if s.strava_import_next_page == 1:
+                                import_label = "Lancer l'importation complète"
+                                import_sub = "Récupérer tout l'historique Strava"
+                            else:
+                                # Calcul des numéros : ex Page 6 (start=1001) à Page 10 (end=2000)
+                                start_num = ((s.strava_import_next_page - 1) * 200) + 1
+                                end_num = start_num + 999 
+                                import_label = f"Importer activités {start_num} à {end_num}"
+                                import_sub = "Continuer la récupération de votre historique"
+
                             render_menu_item(
                                 icon="download", 
                                 label=import_label, 
                                 key="start_sync", 
                                 on_click=on_start_full_import_click,
-                                sub_label="Récupérer l'historique par blocs de 1000"
+                                sub_label=import_sub
                             )
                         else:
-                            me.text("✅ Historique complet déjà importé.", style=me.Style(color="#4caf50", font_weight="500", text_align="center"))
-
+                            # État : Historique terminé
+                            with me.box(style=me.Style(padding=me.Padding.all(16), display="flex", justify_content="center", align_items="center")):
+                                me.icon("verified", style=me.Style(color="#4caf50", margin=me.Margin(right=8)))
+                                me.text("Historique complet déjà importé.", style=me.Style(color="#4caf50", font_weight="500"))
+                                
         # --- CASE 2 : SOUS-MENU STRAVA ---
         elif active_menu == "strava_main":
             with me.box(key="menu_strava", style=me.Style(width="100%", display="flex", flex_direction="column", align_items="center")):
