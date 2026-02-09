@@ -176,6 +176,11 @@ def get_cv_stats(user_id: str, year: str = "Toutes", sport_type: str = "Tous"):
     return res.data
 
 def get_all_user_activities(user_id: str):
-    """Récupère l'intégralité des activités pour le CV Sportif."""
-    res = supabase.table("activities").select("*").eq("user_id", user_id).order("start_date", desc=True).execute()
+    """Récupère l'intégralité des activités sans la limite par défaut de 1000."""
+    res = supabase.table("activities") \
+        .select("*") \
+        .eq("user_id", user_id) \
+        .order("start_date", desc=True) \
+        .limit(5000) \
+        .execute() # Augmentation de la limite à 5000
     return res.data
