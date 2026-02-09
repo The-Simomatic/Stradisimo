@@ -158,6 +158,22 @@ def render_menu_item(icon: str, label: str, key: str, on_click=on_page_change, s
 
 def settings_screen(s: State):
     with me.box(style=me.Style(width="100%", display="block")):
+        
+        # --- BLOC DE NOTIFICATION GLOBAL ---
+        # S'affiche en haut de page pour confirmer une action (déconnexion, succès d'auth, etc.)
+        if s.success_message:
+            with me.box(style=me.Style(width="100%", display="flex", justify_content="center")):
+                with me.box(style=me.Style(
+                    width="100%", 
+                    max_width=500, 
+                    margin=me.Margin(bottom=20, top=10),
+                    padding=me.Padding.all(12), 
+                    background="#f2fff2", 
+                    border=me.Border.all(me.BorderSide(width=1, color="#4caf50")), 
+                    border_radius=8
+                )):
+                    me.text(s.success_message, style=me.Style(color="#4caf50", font_size=13, font_weight="500"))
+
         active_menu = getattr(s, "active_sub_menu", "")
 
         # --- CASE 1 : SOUS-MENU IMPORT ---
@@ -169,26 +185,17 @@ def settings_screen(s: State):
                     render_back_button("Retour à Strava")
                     me.box(style=me.Style(height=20))
                     
-                    # 1. Feedback Erreur
                     if s.error_message:
                         with me.box(style=me.Style(padding=me.Padding.all(12), background="#fff2f2", border=me.Border.all(me.BorderSide(width=1, color="#ff5252")), border_radius=8, margin=me.Margin(bottom=20))):
                             me.text(s.error_message, style=me.Style(color="#ff5252", font_size=13, font_weight="500"))
 
-                    # 2. Feedback Succès
-                    if s.success_message:
-                        with me.box(style=me.Style(padding=me.Padding.all(12), background="#f2fff2", border=me.Border.all(me.BorderSide(width=1, color="#4caf50")), border_radius=8, margin=me.Margin(bottom=20))):
-                            me.text(s.success_message, style=me.Style(color="#4caf50", font_size=13, font_weight="500"))
-
-                    # 3. État de Chargement
                     if s.is_loading:
                         with me.box(style=me.Style(padding=me.Padding.all(40), display="flex", flex_direction="column", align_items="center")):
                             me.progress_spinner()
                             me.text("Synchronisation avec Strava en cours...", style=me.Style(margin=me.Margin(top=20), font_weight="500"))
                             me.text("Veuillez patienter quelques instants.", style=me.Style(font_size=12, opacity=0.7))
                     else:
-                        # --- BOUTONS D'ACTION ---
-
-                        # BOUTON 1 : SYNCHRO RÉCENTE (Les manquantes)
+                        # BOUTON 1 : SYNCHRO RÉCENTE
                         render_menu_item(
                             icon="sync", 
                             label="Synchroniser les manquantes", 
@@ -199,13 +206,12 @@ def settings_screen(s: State):
                         
                         me.box(style=me.Style(height=15))
                         
-                        # BOUTON 2 : IMPORT COMPLET (Dynamique par numéros d'activités)
+                        # BOUTON 2 : IMPORT COMPLET
                         if s.strava_import_next_page != -1:
                             if s.strava_import_next_page == 1:
                                 import_label = "Lancer l'importation complète"
                                 import_sub = "Récupérer tout l'historique Strava"
                             else:
-                                # Calcul des numéros : ex Page 6 (start=1001) à Page 10 (end=2000)
                                 start_num = ((s.strava_import_next_page - 1) * 200) + 1
                                 end_num = start_num + 999 
                                 import_label = f"Importer activités {start_num} à {end_num}"
@@ -219,7 +225,6 @@ def settings_screen(s: State):
                                 sub_label=import_sub
                             )
                         else:
-                            # État : Historique terminé
                             with me.box(style=me.Style(padding=me.Padding.all(16), display="flex", justify_content="center", align_items="center")):
                                 me.icon("verified", style=me.Style(color="#4caf50", margin=me.Margin(right=8)))
                                 me.text("Historique complet déjà importé.", style=me.Style(color="#4caf50", font_weight="500"))
@@ -235,7 +240,6 @@ def settings_screen(s: State):
                     is_linked = getattr(s, "is_strava_linked", False)
                     
                     if not is_linked:
-                        # --- ÉTAT : NON CONNECTÉ ---
                         auth_url = get_strava_auth_url()
                         with me.box(style=st.SETTINGS_CARD_STYLE):
                             me.icon(icon="link", style=me.Style(margin=me.Margin(right=16), color=st.COLOR_PRIMARY))
@@ -250,7 +254,6 @@ def settings_screen(s: State):
                                 """)
                             me.icon(icon="open_in_new", style=me.Style(color="rgba(229, 229, 229, 0.3)"))
                     else:
-                        # --- ÉTAT : DÉJÀ CONNECTÉ (L'indicateur ✅) ---
                         with me.box(style=st.SETTINGS_CARD_STYLE):
                             me.icon(icon="check_circle", style=me.Style(margin=me.Margin(right=16), color="#4caf50"))
                             with me.box(style=me.Style(flex_grow=1)):
@@ -259,7 +262,6 @@ def settings_screen(s: State):
                         
                         me.box(style=me.Style(height=10))
 
-                        # Bouton pour aller vers l'import (Historique / Manquantes)
                         render_menu_item(
                             key="import_history",
                             icon="sync_alt",
@@ -270,7 +272,6 @@ def settings_screen(s: State):
                         
                         me.box(style=me.Style(height=10))
 
-                        # Bouton Déconnexion
                         render_menu_item(
                             key="strava_unauth",
                             icon="link_off",
@@ -278,15 +279,13 @@ def settings_screen(s: State):
                             on_click=on_disconnect_strava,
                             sub_label="Supprimer la liaison avec ce compte"
                         )
+
         # --- CASE 3 : MENU PRINCIPAL ---
         else:
             with me.box(key="menu_main", style=me.Style(width="100%", display="flex", flex_direction="column", align_items="center")):
                 me.text("PARAMÈTRES", style=st.PAGE_TITLE_STYLE)
                 with me.box(style=me.Style(width="100%", max_width=500)):
                     
-                    if s.success_message:
-                        me.text(s.success_message, style=st.SUCCESS_TEXT_STYLE)
-
                     me.text("MON COMPTE", style=st.PAGE_SUBTITLE)
                     render_menu_item(key="profile_edit", icon="person", label="Profil")
                     
