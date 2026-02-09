@@ -23,11 +23,40 @@ def get_strava_auth_url():
     }
     return f"https://www.strava.com/oauth/authorize?{urllib.parse.urlencode(params)}"
 
+def on_sync_recent_click(e: me.ClickEvent):
+    """Synchronise uniquement les activités manquantes depuis la dernière date en DB."""
+    s = me.state(State)
+    print("🚀 [UI] Clic sur synchronisation rapide")
+    s.is_loading = True
+    s.success_message = ""
+    s.error_message = ""
+    yield
+
+    try:
+        # On appelle la fonction de synchro différentielle
+        count = su.sync_recent_activities(s.user_id, s)
+        
+        if count > 0:
+            s.success_message = f"✅ {count} nouvelles activités ajoutées !"
+        else:
+            s.success_message = "Votre compte est déjà à jour."
+        
+        # Rafraîchissement des données pour le dashboard
+        activities = db.get_latest_activities(s.user_id)
+        s.recent_activities_json = json.dumps(activities)
+        print(f"✅ [UI] Synchro rapide terminée: {count} activités.")
+    except Exception as ex:
+        print(f"❌ [UI] Erreur synchro rapide: {ex}")
+        s.error_message = "Erreur lors de la synchronisation des nouvelles activités."
+    
+    s.is_loading = False
+    yield
+
 def on_start_full_import_click(e: me.ClickEvent):
     """Lance l'importation par blocs pour éviter les timeouts Cloud Run."""
     s = me.state(State)
+    print(f"🚀 [UI] Clic sur import complet (Page actuelle: {s.strava_import_next_page})")
     
-    # Sécurité : si l'import est déjà marqué comme fini totalement
     if s.strava_import_next_page == -1:
         s.success_message = "✅ Tout votre historique est déjà importé."
         yield
@@ -39,44 +68,37 @@ def on_start_full_import_click(e: me.ClickEvent):
     yield 
 
     try:
-        # On appelle le générateur (limité à 5 pages par clic)
         import_generator = su.import_complete_history(s.user_id, s, max_pages=5)
         
         last_batch_count = 0
         for count in import_generator:
             last_batch_count = count
-            # On rafraîchit l'UI à chaque page de 200 pour garder la connexion vivante
             yield 
 
-        # --- GESTION DES MESSAGES DE FIN DE BLOC ---
-        
         if s.strava_import_next_page == -1:
-            # Cas 1 : Strava a renvoyé une liste vide, c'est vraiment fini
             s.success_message = f"✅ Importation terminée ! {last_batch_count} nouvelles activités récupérées."
         elif last_batch_count > 0:
-            # Cas 2 : On a atteint la limite des 5 pages, il y a probablement une suite
             total_est = (s.strava_import_next_page - 1) * 200
-            s.success_message = f"⚡ Bloc de 1000 activités traité (Total approx: {total_est}). Cliquez à nouveau pour importer la suite."
+            s.success_message = f"⚡ Bloc de {last_batch_count} activités traité (Total approx: {total_est}). Cliquez à nouveau pour importer la suite."
         else:
-            # Cas 3 : Rien n'a été importé (déjà à jour)
             s.success_message = "Votre historique semble déjà à jour."
 
-        # Mise à jour du dashboard pour montrer les activités fraîchement importées
         activities = db.get_latest_activities(s.user_id)
         s.recent_activities_json = json.dumps(activities)
+        print("✅ [UI] Fin du bloc d'importation complet.")
 
     except Exception as ex:
-        print(f"Erreur UI Import: {ex}")
-        s.error_message = "La connexion a été instable. Vos données sont sauvegardées, cliquez à nouveau pour reprendre l'import."
+        print(f"❌ [UI] Erreur Import Complet: {ex}")
+        s.error_message = "La connexion a été interrompue. Vos données sont sauvegardées, cliquez à nouveau pour reprendre."
     
     finally:
-        # Le spinner s'arrête quoi qu'il arrive après le bloc de 5 pages
         s.is_loading = False
         yield
 
 def on_disconnect_strava(e: me.ClickEvent):
     """Supprime les accès Strava en base et réinitialise l'état."""
     s = me.state(State)
+    print(f"🔌 [UI] Déconnexion Strava pour {s.user_id}")
     
     data_to_clear = {
         "strava_access_token": None,
@@ -89,6 +111,7 @@ def on_disconnect_strava(e: me.ClickEvent):
     s.strava_access_token = ""
     s.strava_refresh_token = ""
     s.is_strava_linked = False
+    s.strava_import_next_page = 1 # On reset aussi la pagination
     s.success_message = "Compte Strava déconnecté avec succès."
 
 # --- NAVIGATION ---
@@ -140,34 +163,49 @@ def settings_screen(s: State):
         # --- CASE 1 : SOUS-MENU IMPORT ---
         if active_menu == "import_history":
             with me.box(key="menu_import", style=me.Style(width="100%", display="flex", flex_direction="column", align_items="center")):
-                me.text("IMPORTATION HISTORIQUE", style=st.PAGE_TITLE_STYLE)
+                me.text("IMPORTATION", style=st.PAGE_TITLE_STYLE)
                 
                 with me.box(style=me.Style(width="100%", max_width=500)):
                     render_back_button("Retour à Strava")
                     me.box(style=me.Style(height=20))
                     
-                    # 1. Gestion de l'affichage des erreurs
                     if s.error_message:
                         with me.box(style=me.Style(padding=me.Padding.all(12), background="#fff2f2", border=me.Border.all(me.BorderSide(width=1, color="#ff5252")), border_radius=8, margin=me.Margin(bottom=20))):
                             me.text(s.error_message, style=me.Style(color="#ff5252", font_size=13, font_weight="500"))
 
-                    # 2. Affichage conditionnel (Chargement VS Formulaire)
+                    if s.success_message:
+                        with me.box(style=me.Style(padding=me.Padding.all(12), background="#f2fff2", border=me.Border.all(me.BorderSide(width=1, color="#4caf50")), border_radius=8, margin=me.Margin(bottom=20))):
+                            me.text(s.success_message, style=me.Style(color="#4caf50", font_size=13, font_weight="500"))
+
                     if s.is_loading:
                         with me.box(style=me.Style(padding=me.Padding.all(40), display="flex", flex_direction="column", align_items="center")):
                             me.progress_spinner()
                             me.text("Synchronisation avec Strava en cours...", style=me.Style(margin=me.Margin(top=20), font_weight="500"))
-                            me.text("Veuillez ne pas fermer cette page.", style=me.Style(font_size=12, opacity=0.7))
+                            me.text("Veuillez patienter quelques instants.", style=me.Style(font_size=12, opacity=0.7))
                     else:
-                        # On n'affiche la question et le bouton QUE si on ne charge pas
-                        me.text("Souhaitez-vous récupérer toutes vos activités passées ?", style=st.SETTINGS_CARD_SUBTITLE)
-                        me.box(style=me.Style(height=10))
+                        # BOUTON 1 : SYNCHRO RÉCENTE
                         render_menu_item(
-                            icon="download", 
-                            label="Lancer l'importation complète", 
-                            key="start_sync", 
-                            on_click=on_start_full_import_click,
-                            sub_label="Cela mettra à jour vos données existantes"
+                            icon="sync", 
+                            label="Synchroniser les manquantes", 
+                            key="sync_recent", 
+                            on_click=on_sync_recent_click,
+                            sub_label="Récupérer les activités depuis la dernière synchro"
                         )
+                        
+                        me.box(style=me.Style(height=15))
+                        
+                        # BOUTON 2 : IMPORT COMPLET (avec pagination)
+                        if s.strava_import_next_page != -1:
+                            import_label = "Lancer l'importation complète" if s.strava_import_next_page == 1 else f"Continuer l'import (Page {s.strava_import_next_page})"
+                            render_menu_item(
+                                icon="download", 
+                                label=import_label, 
+                                key="start_sync", 
+                                on_click=on_start_full_import_click,
+                                sub_label="Récupérer l'historique par blocs de 1000"
+                            )
+                        else:
+                            me.text("✅ Historique complet déjà importé.", style=me.Style(color="#4caf50", font_weight="500", text_align="center"))
 
         # --- CASE 2 : SOUS-MENU STRAVA ---
         elif active_menu == "strava_main":
@@ -180,34 +218,42 @@ def settings_screen(s: State):
                     is_linked = getattr(s, "is_strava_linked", False)
                     
                     if not is_linked:
-                        # On génère l'URL complète
+                        # --- ÉTAT : NON CONNECTÉ ---
                         auth_url = get_strava_auth_url()
-                        
-                        # On crée le bouton manuellement en HTML pour contourner le bug de navigation
                         with me.box(style=st.SETTINGS_CARD_STYLE):
                             me.icon(icon="link", style=me.Style(margin=me.Margin(right=16), color=st.COLOR_PRIMARY))
                             with me.box(style=me.Style(flex_grow=1)):
-                                # Cette balise <a> est intouchable par le routeur Mesop
                                 me.html(f"""
                                     <a href="{auth_url}" style="text-decoration: none; color: inherit; display: block; width: 100%;">
                                         <div style="font-family: Roboto, sans-serif;">
-                                            <div style="font-size: 16px; font-weight: 500; color: white;">Lier mon compte Strava</div>
-                                            <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px;">Autoriser la synchronisation</div>
+                                            <div style="font-size: 16px; font-weight: 500; color: white;">Connecter Strava</div>
+                                            <div style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px;">Synchronisez vos activités automatiquement</div>
                                         </div>
                                     </a>
                                 """)
                             me.icon(icon="open_in_new", style=me.Style(color="rgba(229, 229, 229, 0.3)"))
                     else:
-                        # Le reste ne change pas
-                        render_menu_item(
-                            key="strava_linked_status",
-                            icon="check_circle",
-                            label="Compte Strava lié ✅",
-                            on_click=None,
-                            sub_label="Votre compte est synchronisé"
-                        )
-                        # ... (garde tes autres boutons déconnecter/importer ici)
+                        # --- ÉTAT : DÉJÀ CONNECTÉ (L'indicateur ✅) ---
+                        with me.box(style=st.SETTINGS_CARD_STYLE):
+                            me.icon(icon="check_circle", style=me.Style(margin=me.Margin(right=16), color="#4caf50"))
+                            with me.box(style=me.Style(flex_grow=1)):
+                                me.text("Strava est connecté", style=me.Style(color="#4caf50", font_weight="500"))
+                                me.text("Compte lié avec succès", style=st.SETTINGS_CARD_SUBTITLE)
+                        
+                        me.box(style=me.Style(height=10))
 
+                        # Bouton pour aller vers l'import (Historique / Manquantes)
+                        render_menu_item(
+                            key="import_history",
+                            icon="sync_alt",
+                            label="Synchroniser mes activités",
+                            sub_label="Historique complet ou nouveautés",
+                            on_click=set_sub_menu
+                        )
+                        
+                        me.box(style=me.Style(height=10))
+
+                        # Bouton Déconnexion
                         render_menu_item(
                             key="strava_unauth",
                             icon="link_off",
@@ -215,17 +261,6 @@ def settings_screen(s: State):
                             on_click=on_disconnect_strava,
                             sub_label="Supprimer la liaison avec ce compte"
                         )
-
-                        me.box(style=me.Style(height=10))
-                        
-                        render_menu_item(
-                            key="import_history",
-                            icon="auto_awesome",
-                            label="Importer l'historique complet",
-                            sub_label="Récupérer vos anciennes activités",
-                            on_click=set_sub_menu
-                        )
-
         # --- CASE 3 : MENU PRINCIPAL ---
         else:
             with me.box(key="menu_main", style=me.Style(width="100%", display="flex", flex_direction="column", align_items="center")):
@@ -234,7 +269,6 @@ def settings_screen(s: State):
                     
                     if s.success_message:
                         me.text(s.success_message, style=st.SUCCESS_TEXT_STYLE)
-                        s.success_message = ""
 
                     me.text("MON COMPTE", style=st.PAGE_SUBTITLE)
                     render_menu_item(key="profile_edit", icon="person", label="Profil")

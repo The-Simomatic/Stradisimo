@@ -21,15 +21,14 @@ def exchange_code_for_token(code: str):
         res = requests.post("https://www.strava.com/oauth/token", data=payload)
         if res.status_code == 200:
             return res.json()
-        print(f"Erreur Token Exchange: {res.text}")
+        print(f"❌ [LOG] Erreur Token Exchange: {res.text}")
         return None
     except Exception as e:
-        print(f"Exception Token Exchange: {e}")
+        print(f"❌ [LOG] Exception Token Exchange: {e}")
         return None
 
 def refresh_strava_token_if_needed(user_id: str, s):
     """Vérifie l'expiration et rafraîchit le token si nécessaire (< 10 min)."""
-    # On récupère les infos fraîches de la DB pour être sûr
     profile, _ = db.get_user_profile(user_id)
     if not profile: return False
     
@@ -37,9 +36,8 @@ def refresh_strava_token_if_needed(user_id: str, s):
     refresh_token = profile.get("strava_refresh_token")
     current_time = int(time.time())
 
-    # S'il reste moins de 10 min (600s) ou si expiré
     if expires_at and (expires_at - current_time) < 600:
-        print("🔄 Le token Strava expire bientôt, rafraîchissement...")
+        print("🔄 [LOG] Le token Strava expire bientôt, rafraîchissement...")
         payload = {
             'client_id': STRAVA_CLIENT_ID,
             'client_secret': STRAVA_CLIENT_SECRET,
@@ -50,22 +48,19 @@ def refresh_strava_token_if_needed(user_id: str, s):
             res = requests.post("https://www.strava.com/oauth/token", data=payload)
             if res.status_code == 200:
                 new_data = res.json()
-                # Mise à jour DB
                 db.update_profile(user_id, {
                     "strava_access_token": new_data['access_token'],
                     "strava_refresh_token": new_data['refresh_token'],
                     "strava_expires_at": new_data['expires_at']
                 })
-                # Mise à jour State
                 s.strava_access_token = new_data['access_token']
                 s.strava_refresh_token = new_data['refresh_token']
                 s.strava_expires_at = new_data['expires_at']
                 return True
         except Exception as e:
-            print(f"Erreur Refresh: {e}")
+            print(f"❌ [LOG] Erreur Refresh: {e}")
             return False
             
-    # Si le token est encore bon, on met à jour le state pour être sûr
     s.strava_access_token = profile.get("strava_access_token")
     return True
 
@@ -74,19 +69,17 @@ def refresh_strava_token_if_needed(user_id: str, s):
 # ==================================================
 
 def _format_activity_for_db(user_id: str, act: dict) -> dict:
-    """Transforme la donnée brute Strava au format exact de ta DB (Logique 'Old App')."""
+    """Transforme la donnée brute Strava au format exact de ta DB."""
     return {
         "user_id": user_id,
-        "strava_id": int(act['id']),  # Converti en int car ta DB attend un bigint
+        "strava_id": int(act['id']),
         "external_id": act.get('external_id'),
         "name": act.get('name', 'Sans titre'),
         "type": act.get('type'),
         "distance": round(act.get('distance', 0) / 1000, 2),
         "start_date": act.get('start_date_local', '')[:10],
-        
-        # --- AJOUTS ET CORRECTIONS ---
-        "elapsed_time": float(act.get('elapsed_time', 0)), # Ta nouvelle colonne (double precision)
-        "moving_time": int(act.get('moving_time', 0)),    # bigint
+        "elapsed_time": float(act.get('elapsed_time', 0)),
+        "moving_time": int(act.get('moving_time', 0)),
         "total_elevation_gain": float(act.get('total_elevation_gain', 0)),
         "elev_high": float(act.get('elev_high', 0)),
         "average_heartrate": float(act.get('average_heartrate', 0)),
@@ -99,8 +92,8 @@ def _format_activity_for_db(user_id: str, act: dict) -> dict:
         "suffer_score": float(act.get('suffer_score', 0)),
         "kudos_count": int(act.get('kudos_count', 0)),
         "device_name": act.get('device_name'),
-        "start_latlng": act.get('start_latlng'), # Array double precision[]
-        "end_latlng": act.get('end_latlng'),     # Array double precision[]
+        "start_latlng": act.get('start_latlng'),
+        "end_latlng": act.get('end_latlng'),
         "gear_id": act.get('gear_id')
     }
 
@@ -108,87 +101,86 @@ def _format_activity_for_db(user_id: str, act: dict) -> dict:
 # 3. SYNCHRONISATION
 # ==================================================
 
-def sync_latest_activities(user_id: str, s):
-    """Récupère les 30 dernières activités (Synchro rapide)."""
+def sync_recent_activities(user_id: str, s):
+    """Récupère uniquement les activités manquantes depuis la dernière date en base."""
+    print("🚀 [LOG] DÉBUT SYNCHRO DES MANQUANTES")
     token = s.strava_access_token
-    if not token: return False
+    if not token: return 0
 
+    # Récupération du timestamp de la dernière activité (nécessite db.get_last_activity_timestamp)
+    last_ts = db.get_last_activity_timestamp(user_id)
+    
     url = "https://www.strava.com/api/v3/athlete/activities"
     headers = {'Authorization': f'Bearer {token}'}
+    params = {'after': last_ts, 'per_page': 100} 
     
     try:
-        res = requests.get(url, headers=headers, params={'per_page': 30})
+        res = requests.get(url, headers=headers, params=params)
         if res.status_code == 200:
             activities = res.json()
-            if not activities: return True
+            if not activities:
+                print("⚠️ [LOG] Aucune nouvelle activité trouvée.")
+                return 0
             
             batch_data = [_format_activity_for_db(user_id, act) for act in activities]
-            
-            # Envoi en DB
             db.upsert_activities(batch_data)
-            
-            # Update date de synchro
             db.update_profile(user_id, {"last_strava_sync": datetime.now(timezone.utc).isoformat()})
-            return True
+            
+            print(f"✅ [LOG] Fin synchro rapide : {len(activities)} activités ajoutées.")
+            return len(activities)
         else:
-            print(f"Erreur API Strava: {res.status_code} - {res.text}")
+            print(f"❌ [LOG] Erreur API Strava: {res.status_code}")
+            return 0
     except Exception as e:
-        print(f"Erreur Sync: {e}")
-    return False
+        print(f"❌ [LOG] Erreur Sync Récente: {e}")
+        return 0
 
 def import_complete_history(user_id: str, s, max_pages=5):
-    """
-    Importe l'historique Strava par blocs pour éviter les timeouts Cloud Run.
-    Utilise s.strava_import_next_page pour savoir où reprendre.
-    """
+    """Importe l'historique Strava par blocs avec logs de début et de fin."""
+    print(f"🚀 [LOG] DÉBUT IMPORT COMPLET - Page de départ: {s.strava_import_next_page}")
     token = s.strava_access_token
     if not token: 
+        print("❌ [LOG] Annulation : Pas de token.")
         return
 
     url = "https://www.strava.com/api/v3/athlete/activities"
     headers = {'Authorization': f'Bearer {token}'}
-    
-    # On reprend là où on s'était arrêté
     current_page = s.strava_import_next_page
     total_imported = 0
     pages_processed = 0
     per_page = 200 
 
-    # Boucle limitée par max_pages (ex: 5 pages = 1000 activités)
     while pages_processed < max_pages:
-        print(f"📥 Importation Strava : Page {current_page}...")
+        print(f"📥 [LOG] Requête Strava : Page {current_page}...")
         try:
             res = requests.get(url, headers=headers, params={'per_page': per_page, 'page': current_page})
             
             if res.status_code != 200:
-                print(f"⚠️ Arrêt API : Code {res.status_code}")
+                print(f"⚠️ [LOG] Arrêt API : Code {res.status_code}")
                 break
             
             activities = res.json()
             if not activities: 
-                print("🏁 Fin de l'historique Strava atteinte.")
-                s.strava_import_next_page = -1 # Marqueur de fin totale
+                print("🏁 [LOG] Fin de l'historique Strava atteinte.")
+                s.strava_import_next_page = -1 
                 break
                 
-            # Insertion en base
             batch_data = [_format_activity_for_db(user_id, act) for act in activities]
             db.upsert_activities(batch_data)
             
             total_imported += len(activities)
+            print(f"✅ [LOG] Page {current_page} traitée (+{len(activities)} act.)")
+            
             current_page += 1
             pages_processed += 1
-            
-            # On met à jour le State IMMEDIATEMENT pour ne pas perdre la progression
             s.strava_import_next_page = current_page
             
-            # On yield pour maintenir la connexion Mesop vivante
             yield total_imported
-            
             time.sleep(0.6) 
             
         except Exception as e:
-            print(f"❌ Erreur durant l'import : {e}")
+            print(f"❌ [LOG] Erreur critique durant l'import : {e}")
             break
             
-    # Mise à jour de la date de synchro en base uniquement à la fin du bloc
     db.update_profile(user_id, {"last_strava_sync": datetime.now(timezone.utc).isoformat()})
+    print(f"✅ [LOG] FIN DU BLOC D'IMPORT. Total récupéré : {total_imported}")

@@ -125,3 +125,39 @@ def get_latest_activities(user_id: str, limit: int = 3):
     except Exception as e:
         print(f"Erreur DB: {e}")
         return []
+
+def get_last_activity_timestamp(user_id: str):
+    """
+    Récupère le timestamp Unix de la dernière activité en base pour cet utilisateur.
+    Retourne 0 si aucune activité n'est trouvée.
+    """
+    try:
+        # On cherche l'activité la plus récente (start_date la plus élevée)
+        response = (
+            supabase.table("activities")
+            .select("start_date")
+            .eq("user_id", user_id)
+            .order("start_date", desc=True)
+            .limit(1)
+            .execute()
+        )
+        
+        if response.data and len(response.data) > 0:
+            date_str = response.data[0]["start_date"]
+            # Conversion de "YYYY-MM-DD" en timestamp Unix
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            return int(dt.timestamp())
+            
+        return 0 # Si pas d'activités, on part de zéro
+    except Exception as e:
+        print(f"❌ Erreur get_last_timestamp : {e}")
+        return 0
+
+def get_all_activities_count(user_id: str):
+    """Compte le nombre total d'activités en base pour l'utilisateur."""
+    try:
+        response = supabase.table("activities").select("id", count="exact").eq("user_id", user_id).execute()
+        return response.count if response.count else 0
+    except Exception as e:
+        print(f"❌ Erreur count activities : {e}")
+        return 0

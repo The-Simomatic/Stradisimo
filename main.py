@@ -153,7 +153,7 @@ def handle_strava_callback(s: State):
             s.is_strava_linked = True
             
             # 3. Première Synchro Immédiate
-            su.sync_latest_activities(s.user_id, s)
+            su.sync_recent_activities(s.user_id, s)
             
             # 4. Refresh des données locales
             activities = db.get_latest_activities(s.user_id)
@@ -193,7 +193,7 @@ def main():
         
         # On ne lance la synchro que si elle n'a pas été faite récemment (ex: > 15 min)
         # Cette logique de "if_needed" doit idéalement être dans strava_utils.py
-        su.sync_latest_activities(s.user_id, s)
+        su.sync_recent_activities(s.user_id, s)
         
         # Mise à jour du JSON pour les graphiques
         activities = db.get_latest_activities(s.user_id)
