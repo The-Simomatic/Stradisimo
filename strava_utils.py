@@ -136,55 +136,59 @@ def sync_latest_activities(user_id: str, s):
         print(f"Erreur Sync: {e}")
     return False
 
-def import_complete_history(user_id: str, s):
+def import_complete_history(user_id: str, s, max_pages=5):
     """
-    Importe TOUT l'historique via un générateur.
-    Yield le nombre total d'activités à chaque page pour maintenir la connexion Mesop.
+    Importe l'historique Strava par blocs pour éviter les timeouts Cloud Run.
+    Utilise s.strava_import_next_page pour savoir où reprendre.
     """
     token = s.strava_access_token
     if not token: 
-        return 0
+        return
 
     url = "https://www.strava.com/api/v3/athlete/activities"
     headers = {'Authorization': f'Bearer {token}'}
     
-    page = 1
+    # On reprend là où on s'était arrêté
+    current_page = s.strava_import_next_page
     total_imported = 0
-    per_page = 200 # Max autorisé par Strava
-    
-    while True:
-        print(f"📥 Importation Strava : Page {page}...")
+    pages_processed = 0
+    per_page = 200 
+
+    # Boucle limitée par max_pages (ex: 5 pages = 1000 activités)
+    while pages_processed < max_pages:
+        print(f"📥 Importation Strava : Page {current_page}...")
         try:
-            res = requests.get(url, headers=headers, params={'per_page': per_page, 'page': page})
+            res = requests.get(url, headers=headers, params={'per_page': per_page, 'page': current_page})
             
             if res.status_code != 200:
-                print(f"⚠️ Arrêt : Code {res.status_code} - {res.text}")
+                print(f"⚠️ Arrêt API : Code {res.status_code}")
                 break
             
             activities = res.json()
-            if not activities: # Fin de l'historique
-                print("🏁 Fin de l'historique Strava atteint.")
+            if not activities: 
+                print("🏁 Fin de l'historique Strava atteinte.")
+                s.strava_import_next_page = -1 # Marqueur de fin totale
                 break
                 
-            # Préparation et insertion
+            # Insertion en base
             batch_data = [_format_activity_for_db(user_id, act) for act in activities]
             db.upsert_activities(batch_data)
             
             total_imported += len(activities)
-            page += 1
+            current_page += 1
+            pages_processed += 1
             
-            # CRUCIAL : On renvoie le total à Mesop pour rafraîchir le spinner
+            # On met à jour le State IMMEDIATEMENT pour ne pas perdre la progression
+            s.strava_import_next_page = current_page
+            
+            # On yield pour maintenir la connexion Mesop vivante
             yield total_imported
             
-            # Pause pour respecter les limites de l'API Strava
             time.sleep(0.6) 
             
         except Exception as e:
-            print(f"❌ Erreur critique durant l'import : {e}")
+            print(f"❌ Erreur durant l'import : {e}")
             break
             
-    # Update date de synchro finale
+    # Mise à jour de la date de synchro en base uniquement à la fin du bloc
     db.update_profile(user_id, {"last_strava_sync": datetime.now(timezone.utc).isoformat()})
-    
-    # On renvoie le résultat final
-    return total_imported

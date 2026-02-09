@@ -1,5 +1,4 @@
 import mesop as me
-import json
 
 @me.stateclass
 class State:
@@ -15,7 +14,7 @@ class State:
     password_confirm: str = ""
     current_page: str = "login" 
     show_signup: bool = False
-    active_sub_menu: str = ""  # NOUVEAU : Pour gérer "Strava" vs "Paramètres" sans bug
+    active_sub_menu: str = ""  # Gère "Strava" vs "Paramètres"
 
     # --- MESSAGES DE FEEDBACK ---
     error_message: str = ""     
@@ -32,7 +31,7 @@ class State:
     prenom: str = ""
     nom: str = ""               
     date_n: str = ""            
-    poids: float = 0.0          # CORRIGÉ : str -> float pour la cohérence DB
+    poids: float = 0.0          
     sexe: str = ""              
     niveau: str = "Débutant" 
     sport_pref: str = ""
@@ -41,10 +40,15 @@ class State:
     birth_month: str = ""
     birth_year: str = ""
 
-    # --- INTÉGRATION STRAVA (NOUVEAU) ---
+    # --- INTÉGRATION STRAVA ---
     is_strava_linked: bool = False
     strava_access_token: str = ""
     strava_refresh_token: str = ""
     strava_expires_at: int = 0
     last_strava_sync: str = ""
-    recent_activities_json: str = "[]" # On initialise avec un tableau vide en string
+    recent_activities_json: str = "[]" 
+    
+    # --- GESTION DE LA PAGINATION (POUR ÉVITER LES TIMEOUTS) ---
+    # Cette variable permet de reprendre l'import à la page 6, 11, etc.
+    # 1 = début, -1 = importation terminée
+    strava_import_next_page: int = 1

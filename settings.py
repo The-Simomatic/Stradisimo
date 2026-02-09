@@ -24,45 +24,53 @@ def get_strava_auth_url():
     return f"https://www.strava.com/oauth/authorize?{urllib.parse.urlencode(params)}"
 
 def on_start_full_import_click(e: me.ClickEvent):
-    """Lance l'importation complète en itérant sur le générateur pour éviter les timeouts."""
+    """Lance l'importation par blocs pour éviter les timeouts Cloud Run."""
     s = me.state(State)
+    
+    # Sécurité : si l'import est déjà marqué comme fini totalement
+    if s.strava_import_next_page == -1:
+        s.success_message = "✅ Tout votre historique est déjà importé."
+        yield
+        return
+
     s.is_loading = True
     s.error_message = ""
-    s.success_message = "" # On vide aussi le message de succès précédent
+    s.success_message = ""
     yield 
 
     try:
-        # On récupère le générateur depuis strava_utils
-        import_generator = su.import_complete_history(s.user_id, s)
+        # On appelle le générateur (limité à 5 pages par clic)
+        import_generator = su.import_complete_history(s.user_id, s, max_pages=5)
         
-        final_count = 0
-        # On boucle sur chaque "yield" de la fonction d'import (chaque page de 200)
+        last_batch_count = 0
         for count in import_generator:
-            final_count = count
-            # Optionnel : Tu peux afficher la progression en temps réel dans la console
-            print(f"Progression : {final_count} activités récupérées...")
-            # CRUCIAL : Ce yield ici dit à Mesop de rafraîchir le spinner 
-            # et de garder la connexion HTTP active avec le navigateur
+            last_batch_count = count
+            # On rafraîchit l'UI à chaque page de 200 pour garder la connexion vivante
             yield 
 
-        # Une fois la boucle terminée (plus de pages à charger)
-        if final_count > 0:
-            s.success_message = f"✅ {final_count} activités synchronisées avec succès !"
-            # Mise à jour immédiate du dashboard
-            activities = db.get_latest_activities(s.user_id)
-            s.recent_activities_json = json.dumps(activities)
+        # --- GESTION DES MESSAGES DE FIN DE BLOC ---
+        
+        if s.strava_import_next_page == -1:
+            # Cas 1 : Strava a renvoyé une liste vide, c'est vraiment fini
+            s.success_message = f"✅ Importation terminée ! {last_batch_count} nouvelles activités récupérées."
+        elif last_batch_count > 0:
+            # Cas 2 : On a atteint la limite des 5 pages, il y a probablement une suite
+            total_est = (s.strava_import_next_page - 1) * 200
+            s.success_message = f"⚡ Bloc de 1000 activités traité (Total approx: {total_est}). Cliquez à nouveau pour importer la suite."
         else:
-            # Si le compte est à 0 mais qu'il n'y a pas eu d'exception,
-            # c'est que le compte Strava était déjà à jour ou vide.
-            s.success_message = "Votre historique est déjà à jour."
+            # Cas 3 : Rien n'a été importé (déjà à jour)
+            s.success_message = "Votre historique semble déjà à jour."
+
+        # Mise à jour du dashboard pour montrer les activités fraîchement importées
+        activities = db.get_latest_activities(s.user_id)
+        s.recent_activities_json = json.dumps(activities)
 
     except Exception as ex:
-        # En cas de plantage (ex: plus de réseau, timeout serveur)
         print(f"Erreur UI Import: {ex}")
-        s.error_message = "La synchronisation a été interrompue (Timeout). Pas d'inquiétude, les premières activités sont enregistrées. Veuillez relancer pour terminer."
+        s.error_message = "La connexion a été instable. Vos données sont sauvegardées, cliquez à nouveau pour reprendre l'import."
     
     finally:
-        # On s'assure que le chargement s'arrête quoi qu'il arrive
+        # Le spinner s'arrête quoi qu'il arrive après le bloc de 5 pages
         s.is_loading = False
         yield
 
