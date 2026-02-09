@@ -112,7 +112,7 @@ def on_disconnect_strava(e: me.ClickEvent):
     s.strava_refresh_token = ""
     s.is_strava_linked = False
     s.strava_import_next_page = 1 # On reset aussi la pagination
-    s.success_message = "Compte Strava déconnecté avec succès."
+    s.success_message = "Votre compte Strava a été dissocié avec succès. Pour révoquer totalement l'accès, n'oubliez pas de supprimer l'autorisation directement dans vos paramètres Strava."
 
 # --- NAVIGATION ---
 
@@ -223,7 +223,7 @@ def settings_screen(s: State):
                             with me.box(style=me.Style(padding=me.Padding.all(16), display="flex", justify_content="center", align_items="center")):
                                 me.icon("verified", style=me.Style(color="#4caf50", margin=me.Margin(right=8)))
                                 me.text("Historique complet déjà importé.", style=me.Style(color="#4caf50", font_weight="500"))
-                                
+
         # --- CASE 2 : SOUS-MENU STRAVA ---
         elif active_menu == "strava_main":
             with me.box(key="menu_strava", style=me.Style(width="100%", display="flex", flex_direction="column", align_items="center")):

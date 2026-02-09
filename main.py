@@ -153,22 +153,26 @@ def handle_strava_callback(s: State):
             s.is_strava_linked = True
             
             # 3. Première Synchro Immédiate
+            # Note: sync_recent_activities utilise maintenant le nouveau nom corrigé
             su.sync_recent_activities(s.user_id, s)
             
-            # 4. Refresh des données locales
+            # 4. Refresh des données locales pour l'affichage
             activities = db.get_latest_activities(s.user_id)
             s.recent_activities_json = json.dumps(activities)
             
-            s.success_message = "Compte Strava connecté avec succès !"
+            # 5. Message de succès et navigation
+            s.success_message = "✅ Votre compte Strava est maintenant connecté ! Vos dernières activités ont été synchronisées."
             s.is_loading = False
             
-            # 5. REDIRECTION CRITIQUE : on nettoie l'URL pour enlever le ?code=
-            # On redirige vers les réglages pour que l'utilisateur voie le succès
+            # On définit la page de destination dans le State avant de naviguer
             s.current_page = "settings"
             s.active_sub_menu = "strava_main"
+            
+            # me.navigate("/") nettoie l'URL (enlève le ?code=...) et relance l'app sur le State mis à jour
             me.navigate("/") 
+            
         else:
-            s.error_message = "Échec de la connexion Strava : code invalide ou expiré."
+            s.error_message = "Échec de la connexion Strava : le lien d'autorisation a expiré ou est invalide."
             s.is_loading = False
 
 # --- CONFIGURATION DE LA PAGE PRINCIPALE ---
