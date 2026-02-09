@@ -370,3 +370,49 @@ ACTIVITY_DISTANCE_STYLE = me.Style(
     font_size="1.1rem",
     font_family="Kanit"
 )
+
+# ==================================================
+# 12. CV SPORTIF STYLES
+# ==================================================
+
+CV_STATS_GRID = me.Style(
+    display="grid",
+    grid_template_columns="repeat(auto-fit, minmax(200px, 1fr))",
+    gap=15,
+    margin=me.Margin(top=20, bottom=20),
+    width="100%",
+)
+
+CV_STAT_CARD = me.Style(
+    background=COLOR_CARD_BG,
+    padding=me.Padding.all(20),
+    border_radius=15,
+    border=me.Border.all(me.BorderSide(width=1, color="rgba(40, 165, 168, 0.2)")),
+    display="flex",
+    flex_direction="column",
+    align_items="center",
+    text_align="center"
+)
+
+CV_STAT_VALUE = me.Style(
+    color=COLOR_PRIMARY,
+    font_family="Kanit, sans-serif",
+    font_size="2rem",
+    font_weight="900",
+)
+
+CV_STAT_LABEL = me.Style(
+    color=COLOR_TEXT,
+    font_size="0.8rem",
+    text_transform="uppercase",
+    letter_spacing="1px",
+    opacity=0.7
+)
+
+FILTER_BAR_STYLE = me.Style(
+    display="flex",
+    gap=10,
+    justify_content="center",
+    margin=me.Margin(bottom=30),
+    flex_wrap="wrap"
+)

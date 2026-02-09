@@ -52,3 +52,7 @@ class State:
     # Cette variable permet de reprendre l'import à la page 6, 11, etc.
     # 1 = début, -1 = importation terminée
     strava_import_next_page: int = 1
+
+    # --- Filtres du CV Sportif ---
+    cv_filter_year: str = "Toutes"
+    cv_filter_type: str = "Tous"

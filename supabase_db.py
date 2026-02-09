@@ -161,3 +161,21 @@ def get_all_activities_count(user_id: str):
     except Exception as e:
         print(f"❌ Erreur count activities : {e}")
         return 0
+
+def get_cv_stats(user_id: str, year: str = "Toutes", sport_type: str = "Tous"):
+    """Récupère les statistiques agrégées pour le CV Sportif."""
+    query = supabase.table("activities").select("distance, total_elevation_gain, moving_time, type, start_date").eq("user_id", user_id)
+    
+    if year != "Toutes":
+        query = query.gte("start_date", f"{year}-01-01").lte("start_date", f"{year}-12-31")
+    
+    if sport_type != "Tous":
+        query = query.eq("type", sport_type)
+        
+    res = query.execute()
+    return res.data
+
+def get_all_user_activities(user_id: str):
+    """Récupère l'intégralité des activités pour le CV Sportif."""
+    res = supabase.table("activities").select("*").eq("user_id", user_id).order("start_date", desc=True).execute()
+    return res.data
