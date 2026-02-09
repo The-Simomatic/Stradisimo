@@ -77,29 +77,30 @@ def _format_activity_for_db(user_id: str, act: dict) -> dict:
     """Transforme la donnée brute Strava au format exact de ta DB (Logique 'Old App')."""
     return {
         "user_id": user_id,
-        "strava_id": str(act['id']),
+        "strava_id": int(act['id']),  # Converti en int car ta DB attend un bigint
         "external_id": act.get('external_id'),
         "name": act.get('name', 'Sans titre'),
         "type": act.get('type'),
-        # Conversion mètres -> km (comme dans ton ancienne app)
         "distance": round(act.get('distance', 0) / 1000, 2),
-        "start_date": act.get('start_date_local', '')[:10], # YYYY-MM-DD
-        "total_elevation_gain": act.get('total_elevation_gain', 0),
-        "elev_high": act.get('elev_high', 0),
-        "moving_time": act.get('moving_time', 0),
-        "average_heartrate": act.get('average_heartrate', 0),
-        "max_heartrate": act.get('max_heartrate', 0),
-        "average_speed": act.get('average_speed', 0),
-        "max_speed": act.get('max_speed', 0),
-        "average_cadence": act.get('average_cadence', 0),
-        "average_watts": act.get('average_watts', 0),
-        "kilojoules": act.get('kilojoules', 0),
-        "suffer_score": act.get('suffer_score', 0),
-        "kudos_count": act.get('kudos_count', 0),
+        "start_date": act.get('start_date_local', '')[:10],
+        
+        # --- AJOUTS ET CORRECTIONS ---
+        "elapsed_time": float(act.get('elapsed_time', 0)), # Ta nouvelle colonne (double precision)
+        "moving_time": int(act.get('moving_time', 0)),    # bigint
+        "total_elevation_gain": float(act.get('total_elevation_gain', 0)),
+        "elev_high": float(act.get('elev_high', 0)),
+        "average_heartrate": float(act.get('average_heartrate', 0)),
+        "max_heartrate": float(act.get('max_heartrate', 0)),
+        "average_speed": float(act.get('average_speed', 0)),
+        "max_speed": float(act.get('max_speed', 0)),
+        "average_cadence": float(act.get('average_cadence', 0)),
+        "average_watts": float(act.get('average_watts', 0)),
+        "kilojoules": float(act.get('kilojoules', 0)),
+        "suffer_score": float(act.get('suffer_score', 0)),
+        "kudos_count": int(act.get('kudos_count', 0)),
         "device_name": act.get('device_name'),
-        # Sérialisation des listes/objets si nécessaire pour Supabase (JSONB ou texte)
-        "start_latlng": act.get('start_latlng'), 
-        "end_latlng": act.get('end_latlng'),
+        "start_latlng": act.get('start_latlng'), # Array double precision[]
+        "end_latlng": act.get('end_latlng'),     # Array double precision[]
         "gear_id": act.get('gear_id')
     }
 
